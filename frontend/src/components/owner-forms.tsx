@@ -1,30 +1,36 @@
-import { useEffect, useState } from "react"
-import { FormSheet } from "@/components/form-sheet"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import type { ItemInput, ListInput } from "@/lib/owner-api"
-import { safeHref } from "@/lib/links"
+import { useEffect, useState } from "react";
+import { FormSheet } from "@/components/form-sheet";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { ItemInput, ListInput } from "@/lib/owner-api";
+import { safeHref } from "@/lib/links";
 
 // Limits match the owner Lambda's validation
-const LIMITS = { listTitle: 100, description: 500, itemTitle: 200, note: 500, url: 2048 }
+const LIMITS = {
+  listTitle: 100,
+  description: 500,
+  itemTitle: 200,
+  note: 500,
+  url: 2048,
+};
 
-const fieldClass = "h-11 text-base"
-const textareaClass = "min-h-20 text-base"
+const fieldClass = "h-11 text-base";
+const textareaClass = "min-h-20 text-base";
 
 // Form state resets each time the sheet opens, so a cancelled edit never leaks into the next one
 function useFormState<T>(open: boolean, initial: T) {
-  const [values, setValues] = useState(initial)
+  const [values, setValues] = useState(initial);
 
   useEffect(() => {
-    if (open) setValues(initial)
+    if (open) setValues(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset when opening
-  }, [open])
+  }, [open]);
 
   const set = <K extends keyof T>(key: K, value: T[K]) =>
-    setValues((current) => ({ ...current, [key]: value }))
+    setValues((current) => ({ ...current, [key]: value }));
 
-  return [values, set] as const
+  return [values, set] as const;
 }
 
 export function ListFormSheet({
@@ -36,15 +42,15 @@ export function ListFormSheet({
   submitting,
   onSave,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  heading: string
-  submitLabel: string
-  initial?: ListInput
-  submitting: boolean
-  onSave: (input: ListInput) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  heading: string;
+  submitLabel: string;
+  initial?: ListInput;
+  submitting: boolean;
+  onSave: (input: ListInput) => void;
 }) {
-  const [values, set] = useFormState(open, initial)
+  const [values, set] = useFormState(open, initial);
 
   return (
     <FormSheet
@@ -55,7 +61,10 @@ export function ListFormSheet({
       submitting={submitting}
       canSubmit={values.title.trim() !== ""}
       onSubmit={() =>
-        onSave({ title: values.title.trim(), description: values.description.trim() })
+        onSave({
+          title: values.title.trim(),
+          description: values.description.trim(),
+        })
       }
     >
       <div className="grid gap-2">
@@ -81,7 +90,7 @@ export function ListFormSheet({
         />
       </div>
     </FormSheet>
-  )
+  );
 }
 
 export function ItemFormSheet({
@@ -94,20 +103,20 @@ export function ItemFormSheet({
   onSave,
   secondaryAction,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  heading: string
-  submitLabel: string
-  initial?: ItemInput
-  submitting: boolean
-  onSave: (input: ItemInput) => void
-  secondaryAction?: React.ReactNode
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  heading: string;
+  submitLabel: string;
+  initial?: ItemInput;
+  submitting: boolean;
+  onSave: (input: ItemInput) => void;
+  secondaryAction?: React.ReactNode;
 }) {
-  const [values, set] = useFormState(open, initial)
-  const url = values.url.trim()
-  const urlValid = safeHref(url) !== undefined
+  const [values, set] = useFormState(open, initial);
+  const url = values.url.trim();
+  const urlValid = safeHref(url) !== undefined;
   // Only complain once something has been typed, never on an empty field
-  const showUrlError = url !== "" && !urlValid
+  const showUrlError = url !== "" && !urlValid;
 
   return (
     <FormSheet
@@ -166,5 +175,5 @@ export function ItemFormSheet({
         />
       </div>
     </FormSheet>
-  )
+  );
 }

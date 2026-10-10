@@ -8,14 +8,26 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="Share a wishlist. Friends claim gifts, you keep the surprise." />
+    <meta
+      name="description"
+      content="Share a wishlist. Friends claim gifts, you keep the surprise."
+    />
     <title>gimme</title>
     <script>
-      // Follow the device's light/dark setting before first paint, and keep following it
+      // Apply the theme before first paint: a stored choice wins, otherwise follow the device
       (() => {
         const query = window.matchMedia("(prefers-color-scheme: dark)");
-        const apply = () =>
-          document.documentElement.classList.toggle("dark", query.matches);
+        const stored = () => {
+          try {
+            return localStorage.getItem("gimme:theme");
+          } catch {
+            return null;
+          }
+        };
+        const apply = () => {
+          const theme = stored() ?? (query.matches ? "dark" : "light");
+          document.documentElement.classList.toggle("dark", theme === "dark");
+        };
         apply();
         query.addEventListener("change", apply);
       })();

@@ -1,6 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query"
-import { CircleUserIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useQueryClient } from "@tanstack/react-query";
+import { CircleUserIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,19 +8,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { signOut } from "@/lib/auth"
-import { useAuth } from "@/lib/use-auth"
+} from "@/components/ui/dropdown-menu";
+import { signOut } from "@/lib/auth";
+import { useAuth } from "@/lib/use-auth";
 
 // Sign-out is rare, so it lives behind the account icon, next to the email it applies to
 export function AccountMenu() {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const handleSignOut = async () => {
-    await signOut()
-    queryClient.clear()
-  }
+    await signOut();
+    queryClient.clear();
+  };
 
   return (
     <DropdownMenu>
@@ -41,5 +41,5 @@ export function AccountMenu() {
         <DropdownMenuItem onSelect={handleSignOut}>Sign out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

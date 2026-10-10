@@ -7,7 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
 // For actions that can't be undone
 export function ConfirmDialog({
@@ -18,12 +18,12 @@ export function ConfirmDialog({
   confirmLabel,
   onConfirm,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  description: string
-  confirmLabel: string
-  onConfirm: () => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onConfirm: () => void;
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -34,11 +34,15 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel size="lg">Cancel</AlertDialogCancel>
-          <AlertDialogAction size="lg" variant="destructive" onClick={onConfirm}>
+          <AlertDialogAction
+            size="lg"
+            variant="destructive"
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  )
+  );
 }

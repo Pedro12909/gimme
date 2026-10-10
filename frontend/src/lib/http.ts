@@ -1,11 +1,11 @@
-import { getConfig } from "@/config"
+import { getConfig } from "@/config";
 
 export class ApiError extends Error {
-  readonly status: number
+  readonly status: number;
 
   constructor(status: number, message: string) {
-    super(message)
-    this.status = status
+    super(message);
+    this.status = status;
   }
 }
 
@@ -16,16 +16,16 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
-  })
+  });
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}))
-    throw new ApiError(response.status, body.error ?? response.statusText)
+    const body = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, body.error ?? response.statusText);
   }
 
   if (response.status === 204) {
-    return undefined as T
+    return undefined as T;
   }
 
-  return response.json() as Promise<T>
+  return response.json() as Promise<T>;
 }

@@ -1,43 +1,54 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ChevronRightIcon, PlusIcon } from "lucide-react"
-import { toast } from "sonner"
-import { AccountMenu } from "@/components/account-menu"
-import { ListFormSheet } from "@/components/owner-forms"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Wordmark } from "@/components/wordmark"
-import { createList, getLists } from "@/lib/owner-api"
+import { useState } from "react";
+import { Link, useNavigate } from "react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronRightIcon, PlusIcon } from "lucide-react";
+import { toast } from "sonner";
+import { AccountMenu } from "@/components/account-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ListFormSheet } from "@/components/owner-forms";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Wordmark } from "@/components/wordmark";
+import { createList, getLists } from "@/lib/owner-api";
 
 export default function Lists() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [creating, setCreating] = useState(false)
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [creating, setCreating] = useState(false);
 
-  const { data: lists, isPending, error, refetch } = useQuery({
+  const {
+    data: lists,
+    isPending,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["lists"],
     queryFn: getLists,
-  })
+  });
 
   const create = useMutation({
     mutationFn: createList,
     onSuccess: (list) => {
-      queryClient.invalidateQueries({ queryKey: ["lists"] })
-      setCreating(false)
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+      setCreating(false);
       // Straight into the new list, where the next step is adding items
-      navigate(`/lists/${list.listId}`)
+      navigate(`/lists/${list.listId}`);
     },
     onError: () => toast.error("Couldn't create the list. Try again."),
-  })
+  });
 
-  const sorted = [...(lists ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const sorted = [...(lists ?? [])].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
 
   return (
     <>
       <header className="flex h-12 items-center justify-between">
         <Wordmark />
-        <AccountMenu />
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <AccountMenu />
+        </div>
       </header>
 
       <main className="pt-8">
@@ -50,17 +61,29 @@ export default function Lists() {
         ) : error ? (
           <div className="py-24 text-center">
             <p className="text-muted-foreground">Couldn't load your lists.</p>
-            <Button variant="outline" size="lg" className="mt-6" onClick={() => refetch()}>
+            <Button
+              variant="outline"
+              size="lg"
+              className="mt-6"
+              onClick={() => refetch()}
+            >
               Try again
             </Button>
           </div>
         ) : sorted.length === 0 ? (
           <div className="flex flex-col items-center py-24 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">Start your first list</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Start your first list
+            </h1>
             <p className="mt-2 max-w-xs text-muted-foreground text-pretty">
-              Add things you'd love, then share one link with the people who ask.
+              Add things you'd love, then share one link with the people who
+              ask.
             </p>
-            <Button size="lg" className="mt-8 h-11 px-6" onClick={() => setCreating(true)}>
+            <Button
+              size="lg"
+              className="mt-8 h-11 px-6"
+              onClick={() => setCreating(true)}
+            >
               <PlusIcon />
               New list
             </Button>
@@ -68,7 +91,9 @@ export default function Lists() {
         ) : (
           <>
             <div className="flex items-center justify-between gap-4">
-              <h1 className="text-2xl font-semibold tracking-tight">Your lists</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Your lists
+              </h1>
               <Button size="lg" onClick={() => setCreating(true)}>
                 <PlusIcon />
                 New list
@@ -108,5 +133,5 @@ export default function Lists() {
         onSave={(input) => create.mutate(input)}
       />
     </>
-  )
+  );
 }

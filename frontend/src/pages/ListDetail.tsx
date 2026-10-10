@@ -1,27 +1,28 @@
-import { useState } from "react"
-import { Link, useNavigate, useParams } from "react-router"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeftIcon,
   ExternalLinkIcon,
   MoreHorizontalIcon,
   PlusIcon,
   ShareIcon,
-} from "lucide-react"
-import { toast } from "sonner"
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { ItemFormSheet, ListFormSheet } from "@/components/owner-forms"
-import { Button } from "@/components/ui/button"
+} from "lucide-react";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ItemFormSheet, ListFormSheet } from "@/components/owner-forms";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
-import { ApiError } from "@/lib/http"
-import { safeHref, siteName } from "@/lib/links"
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ApiError } from "@/lib/http";
+import { safeHref, siteName } from "@/lib/links";
 import {
   addItem,
   deleteItem,
@@ -33,112 +34,125 @@ import {
   updateList,
   type Item,
   type ListWithItems,
-} from "@/lib/owner-api"
+} from "@/lib/owner-api";
 
-type Dialog = "editList" | "deleteList" | "newLink" | "deleteItem" | undefined
+type Dialog = "editList" | "deleteList" | "newLink" | "deleteItem" | undefined;
 
-const itemLabel = (item: Item) => item.title?.trim() || siteName(item.url)
+const itemLabel = (item: Item) => item.title?.trim() || siteName(item.url);
 
 async function share(list: ListWithItems) {
-  const url = shareUrl(list.shareToken)
+  const url = shareUrl(list.shareToken);
 
   // Phones get the system share sheet (WhatsApp, Messages…); elsewhere the link is copied
   if (navigator.share && window.matchMedia("(pointer: coarse)").matches) {
     try {
-      await navigator.share({ title: list.title, url })
-      return
+      await navigator.share({ title: list.title, url });
+      return;
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return
+      if (err instanceof Error && err.name === "AbortError") return;
     }
   }
 
   try {
-    await navigator.clipboard.writeText(url)
-    toast("Link copied")
+    await navigator.clipboard.writeText(url);
+    toast("Link copied");
   } catch {
-    toast(url)
+    toast(url);
   }
 }
 
 export default function ListDetail() {
-  const { listId = "" } = useParams()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const { listId = "" } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [adding, setAdding] = useState(false)
-  const [editing, setEditing] = useState<Item>()
-  const [dialog, setDialog] = useState<Dialog>()
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Item>();
+  const [dialog, setDialog] = useState<Dialog>();
 
-  const queryKey = ["list", listId]
-  const { data: list, isPending, error, refetch } = useQuery({
+  const queryKey = ["list", listId];
+  const {
+    data: list,
+    isPending,
+    error,
+    refetch,
+  } = useQuery({
     queryKey,
     queryFn: () => getList(listId),
-    retry: (count, err) => !(err instanceof ApiError && err.status === 404) && count < 2,
-  })
+    retry: (count, err) =>
+      !(err instanceof ApiError && err.status === 404) && count < 2,
+  });
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey })
-    queryClient.invalidateQueries({ queryKey: ["lists"] })
-  }
+    queryClient.invalidateQueries({ queryKey });
+    queryClient.invalidateQueries({ queryKey: ["lists"] });
+  };
 
-  const saveFailed = () => toast.error("Couldn't save. Try again.")
+  const saveFailed = () => toast.error("Couldn't save. Try again.");
 
   const add = useMutation({
-    mutationFn: (input: Parameters<typeof addItem>[1]) => addItem(listId, input),
+    mutationFn: (input: Parameters<typeof addItem>[1]) =>
+      addItem(listId, input),
     onSuccess: () => {
-      setAdding(false)
-      refresh()
+      setAdding(false);
+      refresh();
     },
     onError: saveFailed,
-  })
+  });
 
   const update = useMutation({
-    mutationFn: ({ itemId, input }: { itemId: string; input: Parameters<typeof updateItem>[2] }) =>
-      updateItem(listId, itemId, input),
+    mutationFn: ({
+      itemId,
+      input,
+    }: {
+      itemId: string;
+      input: Parameters<typeof updateItem>[2];
+    }) => updateItem(listId, itemId, input),
     onSuccess: () => {
-      setEditing(undefined)
-      refresh()
+      setEditing(undefined);
+      refresh();
     },
     onError: saveFailed,
-  })
+  });
 
   const removeItem = useMutation({
     mutationFn: (itemId: string) => deleteItem(listId, itemId),
     onSuccess: () => {
-      setEditing(undefined)
-      refresh()
+      setEditing(undefined);
+      refresh();
     },
     onError: () => toast.error("Couldn't delete the item. Try again."),
-  })
+  });
 
   const editList = useMutation({
-    mutationFn: (input: Parameters<typeof updateList>[1]) => updateList(listId, input),
+    mutationFn: (input: Parameters<typeof updateList>[1]) =>
+      updateList(listId, input),
     onSuccess: () => {
-      setDialog(undefined)
-      refresh()
+      setDialog(undefined);
+      refresh();
     },
     onError: saveFailed,
-  })
+  });
 
   const removeList = useMutation({
     mutationFn: () => deleteList(listId),
     onSuccess: () => {
-      queryClient.removeQueries({ queryKey })
-      queryClient.invalidateQueries({ queryKey: ["lists"] })
-      toast("List deleted")
-      navigate("/lists", { replace: true })
+      queryClient.removeQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+      toast("List deleted");
+      navigate("/lists", { replace: true });
     },
     onError: () => toast.error("Couldn't delete the list. Try again."),
-  })
+  });
 
   const rotateLink = useMutation({
     mutationFn: () => newShareLink(listId),
     onSuccess: () => {
-      refresh()
-      toast("New link created. The old one no longer works.")
+      refresh();
+      toast("New link created. The old one no longer works.");
     },
     onError: () => toast.error("Couldn't create a new link. Try again."),
-  })
+  });
 
   const backLink = (
     <Button asChild variant="ghost" size="lg" className="-ml-3">
@@ -147,7 +161,7 @@ export default function ListDetail() {
         Lists
       </Link>
     </Button>
-  )
+  );
 
   if (isPending) {
     return (
@@ -160,60 +174,79 @@ export default function ListDetail() {
           <Skeleton className="h-14 w-full" />
         </div>
       </>
-    )
+    );
   }
 
   if (error) {
-    const notFound = error instanceof ApiError && error.status === 404
+    const notFound = error instanceof ApiError && error.status === 404;
 
     return (
       <>
         <header className="flex h-12 items-center">{backLink}</header>
         <div className="py-24 text-center">
           <p className="text-muted-foreground">
-            {notFound ? "This list doesn't exist anymore." : "Couldn't load this list."}
+            {notFound
+              ? "This list doesn't exist anymore."
+              : "Couldn't load this list."}
           </p>
           {!notFound && (
-            <Button variant="outline" size="lg" className="mt-6" onClick={() => refetch()}>
+            <Button
+              variant="outline"
+              size="lg"
+              className="mt-6"
+              onClick={() => refetch()}
+            >
               Try again
             </Button>
           )}
         </div>
       </>
-    )
+    );
   }
 
-  const empty = list.items.length === 0
+  const empty = list.items.length === 0;
 
   return (
     <>
       <header className="flex h-12 items-center justify-between">
         {backLink}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-lg" aria-label="List options">
-              <MoreHorizontalIcon className="size-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem onSelect={() => setDialog("editList")}>Edit list</DropdownMenuItem>
-            {!empty && (
-              <DropdownMenuItem onSelect={() => setDialog("newLink")}>
-                Create new share link
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-lg" aria-label="List options">
+                <MoreHorizontalIcon className="size-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuItem onSelect={() => setDialog("editList")}>
+                Edit list
               </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => setDialog("deleteList")}>
-              Delete list
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {!empty && (
+                <DropdownMenuItem onSelect={() => setDialog("newLink")}>
+                  Create new share link
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => setDialog("deleteList")}
+              >
+                Delete list
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </header>
 
       <main className="pt-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">{list.title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">
+          {list.title}
+        </h1>
         {list.description && (
-          <p className="mt-2 text-muted-foreground text-pretty">{list.description}</p>
+          <p className="mt-2 text-muted-foreground text-pretty">
+            {list.description}
+          </p>
         )}
 
         {empty ? (
@@ -221,7 +254,11 @@ export default function ListDetail() {
             <p className="max-w-xs text-muted-foreground text-pretty">
               Add the first thing you'd like. Paste a link from any shop.
             </p>
-            <Button size="lg" className="mt-6 h-11 px-6" onClick={() => setAdding(true)}>
+            <Button
+              size="lg"
+              className="mt-6 h-11 px-6"
+              onClick={() => setAdding(true)}
+            >
               <PlusIcon />
               Add item
             </Button>
@@ -230,11 +267,20 @@ export default function ListDetail() {
           <>
             {/* Sharing only appears once there's something worth sharing */}
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <Button size="lg" className="h-11" onClick={() => setAdding(true)}>
+              <Button
+                size="lg"
+                className="h-11"
+                onClick={() => setAdding(true)}
+              >
                 <PlusIcon />
                 Add item
               </Button>
-              <Button variant="outline" size="lg" className="h-11" onClick={() => share(list)}>
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-11"
+                onClick={() => share(list)}
+              >
                 <ShareIcon />
                 Share
               </Button>
@@ -242,7 +288,11 @@ export default function ListDetail() {
 
             <ul className="mt-6 divide-y border-y">
               {list.items.map((item) => (
-                <ItemRow key={item.itemId} item={item} onEdit={() => setEditing(item)} />
+                <ItemRow
+                  key={item.itemId}
+                  item={item}
+                  onEdit={() => setEditing(item)}
+                />
               ))}
             </ul>
           </>
@@ -271,13 +321,15 @@ export default function ListDetail() {
           }
         }
         submitting={update.isPending}
-        onSave={(input) => editing && update.mutate({ itemId: editing.itemId, input })}
+        onSave={(input) =>
+          editing && update.mutate({ itemId: editing.itemId, input })
+        }
         secondaryAction={
           <Button
             type="button"
             variant="ghost"
             size="lg"
-            className="h-11 text-destructive hover:text-destructive"
+            className="h-11 text-destructive hover:text-destructive sm:mr-auto sm:h-9"
             onClick={() => setDialog("deleteItem")}
           >
             Delete item
@@ -302,8 +354,8 @@ export default function ListDetail() {
         description="It will disappear from your list and from the shared link."
         confirmLabel="Delete"
         onConfirm={() => {
-          if (editing) removeItem.mutate(editing.itemId)
-          setDialog(undefined)
+          if (editing) removeItem.mutate(editing.itemId);
+          setDialog(undefined);
         }}
       />
 
@@ -325,14 +377,17 @@ export default function ListDetail() {
         onConfirm={() => rotateLink.mutate()}
       />
     </>
-  )
+  );
 }
 
 function ItemRow({ item, onEdit }: { item: Item; onEdit: () => void }) {
-  const href = safeHref(item.url)
-  const details = [item.title?.trim() ? siteName(item.url) : undefined, item.note]
+  const href = safeHref(item.url);
+  const details = [
+    item.title?.trim() ? siteName(item.url) : undefined,
+    item.note,
+  ]
     .filter(Boolean)
-    .join(" · ")
+    .join(" · ");
 
   return (
     <li className="flex items-center gap-2">
@@ -344,16 +399,23 @@ function ItemRow({ item, onEdit }: { item: Item; onEdit: () => void }) {
       >
         <p className="truncate font-medium">{itemLabel(item)}</p>
         {details && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{details}</p>
+          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
+            {details}
+          </p>
         )}
       </button>
       {href && (
-        <Button asChild variant="ghost" size="icon-lg" aria-label={`Open ${itemLabel(item)}`}>
+        <Button
+          asChild
+          variant="ghost"
+          size="icon-lg"
+          aria-label={`Open ${itemLabel(item)}`}
+        >
           <a href={href} target="_blank" rel="noopener noreferrer">
             <ExternalLinkIcon className="text-muted-foreground" />
           </a>
         </Button>
       )}
     </li>
-  )
+  );
 }

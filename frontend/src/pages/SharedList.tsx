@@ -1,72 +1,71 @@
-import { useState } from "react"
-import { useParams } from "react-router"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState } from "react";
+import { useParams } from "react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { FormSheet } from "@/components/form-sheet";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,
   claimItem,
   getSharedList,
   unclaimItem,
   type SharedItem,
-} from "@/lib/guest-api"
+} from "@/lib/guest-api";
 import {
   forgetClaimSecret,
   getClaimerName,
   getClaimSecret,
   saveClaimerName,
   saveClaimSecret,
-} from "@/lib/guest-storage"
-import { safeHref, siteName } from "@/lib/links"
+} from "@/lib/guest-storage";
+import { safeHref, siteName } from "@/lib/links";
 
-const MAX_NAME_LENGTH = 50
+const MAX_NAME_LENGTH = 50;
 
-const itemLabel = (item: SharedItem) => item.title?.trim() || siteName(item.url)
+const itemLabel = (item: SharedItem) =>
+  item.title?.trim() || siteName(item.url);
 
 export default function SharedList() {
-  const { token = "" } = useParams()
-  const queryClient = useQueryClient()
-  const [claiming, setClaiming] = useState<SharedItem>()
+  const { token = "" } = useParams();
+  const queryClient = useQueryClient();
+  const [claiming, setClaiming] = useState<SharedItem>();
 
-  const queryKey = ["share", token]
-  const { data: list, error, isPending } = useQuery({
+  const queryKey = ["share", token];
+  const {
+    data: list,
+    error,
+    isPending,
+  } = useQuery({
     queryKey,
     queryFn: () => getSharedList(token),
     retry: (count, err) =>
       !(err instanceof ApiError && err.status === 404) && count < 2,
-  })
+  });
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey })
+  const refresh = () => queryClient.invalidateQueries({ queryKey });
 
   const unclaim = useMutation({
     mutationFn: (item: SharedItem) =>
       unclaimItem(token, item.itemId, getClaimSecret(item.itemId) ?? ""),
     onSuccess: (_, item) => {
-      forgetClaimSecret(item.itemId)
-      toast(`${itemLabel(item)} is available again`)
+      forgetClaimSecret(item.itemId);
+      toast(`${itemLabel(item)} is available again`);
     },
     onError: (err, item) => {
       if (err instanceof ApiError && err.status === 403) {
         // The claim is gone or no longer ours, so the stored secret is useless
-        forgetClaimSecret(item.itemId)
-        toast.error("This item was already released")
+        forgetClaimSecret(item.itemId);
+        toast.error("This item was already released");
       } else {
-        toast.error("Couldn't release this item. Try again.")
+        toast.error("Couldn't release this item. Try again.");
       }
     },
     onSettled: refresh,
-  })
+  });
 
   if (isPending) {
     return (
@@ -78,11 +77,11 @@ export default function SharedList() {
           ))}
         </div>
       </Page>
-    )
+    );
   }
 
   if (error) {
-    const notFound = error instanceof ApiError && error.status === 404
+    const notFound = error instanceof ApiError && error.status === 404;
 
     return (
       <Page>
@@ -102,11 +101,13 @@ export default function SharedList() {
           )}
         </div>
       </Page>
-    )
+    );
   }
 
   // Available items first; claimed ones sink to the bottom, keeping the owner's order within each group
-  const items = [...list.items].sort((a, b) => Number(a.claimed) - Number(b.claimed))
+  const items = [...list.items].sort(
+    (a, b) => Number(a.claimed) - Number(b.claimed),
+  );
 
   return (
     <Page>
@@ -133,7 +134,9 @@ export default function SharedList() {
               item={item}
               onClaim={() => setClaiming(item)}
               onUnclaim={() => unclaim.mutate(item)}
-              unclaiming={unclaim.isPending && unclaim.variables?.itemId === item.itemId}
+              unclaiming={
+                unclaim.isPending && unclaim.variables?.itemId === item.itemId
+              }
             />
           ))}
         </ul>
@@ -146,15 +149,18 @@ export default function SharedList() {
         onClaimed={refresh}
       />
     </Page>
-  )
+  );
 }
 
 function Page({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-xl px-4 pt-10 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:pt-16">
+    <main className="relative mx-auto w-full max-w-xl px-4 pt-14 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:pt-16">
+      <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-2">
+        <ThemeToggle />
+      </div>
       {children}
     </main>
-  )
+  );
 }
 
 function ItemRow({
@@ -163,26 +169,33 @@ function ItemRow({
   onUnclaim,
   unclaiming,
 }: {
-  item: SharedItem
-  onClaim: () => void
-  onUnclaim: () => void
-  unclaiming: boolean
+  item: SharedItem;
+  onClaim: () => void;
+  onUnclaim: () => void;
+  unclaiming: boolean;
 }) {
-  const href = safeHref(item.url)
-  const mine = item.claimed && getClaimSecret(item.itemId) !== undefined
-  const details = [item.title?.trim() ? siteName(item.url) : undefined, item.note]
+  const href = safeHref(item.url);
+  const mine = item.claimed && getClaimSecret(item.itemId) !== undefined;
+  const details = [
+    item.title?.trim() ? siteName(item.url) : undefined,
+    item.note,
+  ]
     .filter(Boolean)
-    .join(" · ")
+    .join(" · ");
 
   const status = mine
     ? "Claimed by you"
     : item.claimerName
       ? `Claimed by ${item.claimerName}`
-      : "Claimed"
+      : "Claimed";
 
   return (
     <li className="flex items-center gap-4 py-4">
-      <div className={item.claimed ? "min-w-0 flex-1 opacity-50" : "min-w-0 flex-1"}>
+      <div
+        className={
+          item.claimed ? "min-w-0 flex-1 opacity-50" : "min-w-0 flex-1"
+        }
+      >
         {href ? (
           <a
             href={href}
@@ -211,12 +224,17 @@ function ItemRow({
         </Button>
       )}
       {mine && (
-        <Button variant="ghost" size="lg" onClick={onUnclaim} disabled={unclaiming}>
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={onUnclaim}
+          disabled={unclaiming}
+        >
           Unclaim
         </Button>
       )}
     </li>
-  )
+  );
 }
 
 function ClaimSheet({
@@ -225,72 +243,54 @@ function ClaimSheet({
   onClose,
   onClaimed,
 }: {
-  token: string
-  item: SharedItem | undefined
-  onClose: () => void
-  onClaimed: () => void
+  token: string;
+  item: SharedItem | undefined;
+  onClose: () => void;
+  onClaimed: () => void;
 }) {
-  const [name, setName] = useState(getClaimerName)
+  const [name, setName] = useState(getClaimerName);
 
   const claim = useMutation({
-    mutationFn: (target: SharedItem) => claimItem(token, target.itemId, name.trim()),
+    mutationFn: (target: SharedItem) =>
+      claimItem(token, target.itemId, name.trim()),
     onSuccess: ({ claimSecret }, target) => {
-      saveClaimSecret(target.itemId, claimSecret)
-      saveClaimerName(name.trim())
-      toast(`You claimed ${itemLabel(target)}`)
-      onClose()
+      saveClaimSecret(target.itemId, claimSecret);
+      saveClaimerName(name.trim());
+      toast(`You claimed ${itemLabel(target)}`);
+      onClose();
     },
     onError: (err) => {
       if (err instanceof ApiError && err.status === 409) {
-        toast.error("Someone else just claimed this")
-        onClose()
+        toast.error("Someone else just claimed this");
+        onClose();
       } else {
-        toast.error("Couldn't claim this item. Try again.")
+        toast.error("Couldn't claim this item. Try again.");
       }
     },
     onSettled: onClaimed,
-  })
+  });
 
   return (
-    <Sheet open={item !== undefined} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent
-        side="bottom"
-        className="mx-auto max-w-xl rounded-t-xl pb-[env(safe-area-inset-bottom)]"
-      >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (item) claim.mutate(item)
-          }}
-        >
-          <SheetHeader>
-            <SheetTitle className="truncate pr-8">
-              Claim {item && itemLabel(item)}
-            </SheetTitle>
-            <SheetDescription>
-              Other guests will see it's taken. The list owner won't.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="grid gap-2 px-4">
-            <Label htmlFor="claimer-name">Your name (optional)</Label>
-            <Input
-              id="claimer-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              maxLength={MAX_NAME_LENGTH}
-              autoComplete="given-name"
-              className="h-11 text-base"
-            />
-          </div>
-
-          <SheetFooter>
-            <Button type="submit" size="lg" className="h-11" disabled={claim.isPending}>
-              Claim
-            </Button>
-          </SheetFooter>
-        </form>
-      </SheetContent>
-    </Sheet>
-  )
+    <FormSheet
+      open={item !== undefined}
+      onOpenChange={(open) => !open && onClose()}
+      title={<>Claim {item && itemLabel(item)}</>}
+      description="Other guests will see it's taken. The list owner won't."
+      submitLabel="Claim"
+      submitting={claim.isPending}
+      onSubmit={() => item && claim.mutate(item)}
+    >
+      <div className="grid gap-2">
+        <Label htmlFor="claimer-name">Your name (optional)</Label>
+        <Input
+          id="claimer-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={MAX_NAME_LENGTH}
+          autoComplete="given-name"
+          className="h-11 text-base"
+        />
+      </div>
+    </FormSheet>
+  );
 }

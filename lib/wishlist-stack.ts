@@ -14,9 +14,27 @@ import {
   aws_dynamodb,
 } from "aws-cdk-lib";
 import { CfnOutput, Duration } from "aws-cdk-lib/core";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import { S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import { CloudFrontTarget } from "aws-cdk-lib/aws-route53-targets";
+import { SiteDomain } from "./certificate-stack";
+import * as fs from "node:fs";
+import * as path from "node:path";
+
+const FRONTEND_DIST = path.join(__dirname, "../frontend/dist");
 
 export class WishlistStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: cdk.StackProps & {
+      site: SiteDomain & { certificate: acm.ICertificate };
+    },
+  ) {
     super(scope, id, props);
 
     // Lambda
@@ -82,9 +100,75 @@ export class WishlistStack extends cdk.Stack {
       guestApiFn,
     );
 
+    // Frontend hosting: private bucket, only readable by CloudFront
+    const siteBucket = new s3.Bucket(this, "SiteBucket", {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    // App routes like /s/<token> aren't files, so serve index.html and let the router handle them.
+    // Real files (anything with an extension) still 404 properly when missing.
+    const spaRouting = new cloudfront.Function(this, "SpaRouting", {
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+      code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  if (!request.uri.includes(".")) {
+    request.uri = "/index.html";
+  }
+  return request;
+}`),
+    });
+
+    const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
+      domainNames: [props.site.domainName],
+      certificate: props.site.certificate,
+      defaultRootObject: "index.html",
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      defaultBehavior: {
+        origin: S3BucketOrigin.withOriginAccessControl(siteBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        // HSTS, nosniff, frame denial, and a referrer policy that keeps share tokens out of outbound links
+        responseHeadersPolicy:
+          cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+        functionAssociations: [
+          {
+            function: spaRouting,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
+        ],
+      },
+    });
+    const siteUrl = `https://${props.site.domainName}`;
+
+    const zone = route53.HostedZone.fromHostedZoneAttributes(this, "Zone", {
+      hostedZoneId: props.site.hostedZoneId,
+      zoneName: props.site.zoneName,
+    });
+    const recordName = props.site.domainName.replace(
+      `.${props.site.zoneName}`,
+      "",
+    );
+    const aliasTarget = route53.RecordTarget.fromAlias(
+      new CloudFrontTarget(distribution),
+    );
+    new route53.ARecord(this, "SiteAliasIpv4", {
+      zone,
+      recordName,
+      target: aliasTarget,
+    });
+    new route53.AaaaRecord(this, "SiteAliasIpv6", {
+      zone,
+      recordName,
+      target: aliasTarget,
+    });
+
     const httpApi = new HttpApi(this, "WishlistHttpApi", {
       corsPreflight: {
-        allowOrigins: ["http://localhost:5173"],
+        allowOrigins: [siteUrl, "http://localhost:5173"],
         allowMethods: [
           CorsHttpMethod.GET,
           CorsHttpMethod.POST,
@@ -118,7 +202,6 @@ export class WishlistStack extends cdk.Stack {
       methods: [HttpMethod.GET, HttpMethod.POST, HttpMethod.DELETE],
       integration: guestApiIntegration,
     });
-
 
     // DynamoDB
     const LISTS_TABLE_NAME = "Lists";
@@ -168,6 +251,62 @@ export class WishlistStack extends cdk.Stack {
     claimsTable.grantReadWriteData(guestApiFn);
     guestApiFn.addEnvironment("CLAIMS_TABLE_NAME", claimsTable.tableName);
 
+    // Frontend deployment. The build must exist first: npm run deploy builds it, then deploys.
+    if (!fs.existsSync(path.join(FRONTEND_DIST, "index.html"))) {
+      throw new Error(
+        "frontend/dist not found. Build it first: npm run build --prefix frontend",
+      );
+    }
+
+    // Hashed bundles never change, so browsers can cache them for a year
+    const assetsDeployment = new s3deploy.BucketDeployment(
+      this,
+      "DeploySiteAssets",
+      {
+        destinationBucket: siteBucket,
+        sources: [
+          s3deploy.Source.asset(FRONTEND_DIST, {
+            exclude: ["index.html", "favicon.svg", "config.json"],
+          }),
+        ],
+        cacheControl: [
+          s3deploy.CacheControl.fromString(
+            "public, max-age=31536000, immutable",
+          ),
+        ],
+        // Keep older bundles so people with an older index.html open can still load them
+        prune: false,
+      },
+    );
+
+    // The entry page and runtime config must always be fresh, so they're revalidated on every load
+    const shellDeployment = new s3deploy.BucketDeployment(
+      this,
+      "DeploySiteShell",
+      {
+        destinationBucket: siteBucket,
+        sources: [
+          s3deploy.Source.asset(FRONTEND_DIST, {
+            exclude: ["*", "!index.html", "!favicon.svg"],
+          }),
+          s3deploy.Source.jsonData("config.json", {
+            apiUrl: httpApi.apiEndpoint,
+            userPoolId: userPool.userPoolId,
+            userPoolClientId: userPoolClient.userPoolClientId,
+          }),
+        ],
+        cacheControl: [s3deploy.CacheControl.fromString("no-cache")],
+        prune: false,
+        distribution,
+        distributionPaths: ["/index.html", "/favicon.svg", "/config.json"],
+      },
+    );
+    // New bundles must be in place before the index.html that references them
+    shellDeployment.node.addDependency(assetsDeployment);
+
+    new CfnOutput(this, "SiteUrl", {
+      value: siteUrl,
+    });
     new CfnOutput(this, "WishlistAPIUrl", {
       value: httpApi.apiEndpoint,
     });
