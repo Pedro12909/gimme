@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Share a wishlist. Friends claim gifts, you keep the surprise." />
+    <title>gimme</title>
+    <script>
+      // Follow the device's light/dark setting before first paint, and keep following it
+      (() => {
+        const query = window.matchMedia("(prefers-color-scheme: dark)");
+        const apply = () =>
+          document.documentElement.classList.toggle("dark", query.matches);
+        apply();
+        query.addEventListener("change", apply);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
