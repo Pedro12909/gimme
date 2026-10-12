@@ -1,14 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FormSheet } from "@/components/form-sheet";
-import { ItemThumbnail } from "@/components/item-thumbnail";
+import { ItemSummary } from "@/components/item-summary";
+import {
+  ListControls,
+  MIN_ITEMS_FOR_CONTROLS,
+} from "@/components/list-controls";
+import { PageShell } from "@/components/page-shell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Wordmark } from "@/components/wordmark";
 import {
   ApiError,
   claimItem,
@@ -23,17 +29,21 @@ import {
   saveClaimerName,
   saveClaimSecret,
 } from "@/lib/guest-storage";
-import { safeHref, siteName } from "@/lib/links";
+import {
+  applyView,
+  collectTags,
+  DEFAULT_VIEW,
+  itemLabel,
+  type ListView,
+} from "@/lib/item-view";
 
 const MAX_NAME_LENGTH = 50;
-
-const itemLabel = (item: SharedItem) =>
-  item.title?.trim() || siteName(item.url);
 
 export default function SharedList() {
   const { token = "" } = useParams();
   const queryClient = useQueryClient();
   const [claiming, setClaiming] = useState<SharedItem>();
+  const [view, setView] = useState<ListView>(DEFAULT_VIEW);
 
   const queryKey = ["share", token];
   const {
@@ -68,16 +78,32 @@ export default function SharedList() {
     onSettled: refresh,
   });
 
+  const items = useMemo(() => list?.items ?? [], [list]);
+  const tags = useMemo(() => collectTags(items), [items]);
+  // Items arrive in the owner's order; available ones come first whichever sort is chosen
+  const shown = useMemo(
+    () => applyView(items, view, { claimedLast: true }),
+    [items, view],
+  );
+
+  const header = (
+    <>
+      {/* Also a way in for guests who want a list of their own */}
+      <Wordmark />
+      <ThemeToggle />
+    </>
+  );
+
   if (isPending) {
     return (
-      <Page>
+      <PageShell header={header}>
         <Skeleton className="h-8 w-2/3" />
         <div className="mt-8 space-y-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
-      </Page>
+      </PageShell>
     );
   }
 
@@ -85,7 +111,7 @@ export default function SharedList() {
     const notFound = error instanceof ApiError && error.status === 404;
 
     return (
-      <Page>
+      <PageShell header={header}>
         <div className="py-24 text-center">
           <h1 className="text-lg font-medium">
             {notFound ? "This link doesn't work" : "Something went wrong"}
@@ -101,46 +127,62 @@ export default function SharedList() {
             </Button>
           )}
         </div>
-      </Page>
+      </PageShell>
     );
   }
 
-  // Available items first; claimed ones sink to the bottom, keeping the owner's order within each group
-  const items = [...list.items].sort(
-    (a, b) => Number(a.claimed) - Number(b.claimed),
-  );
-
   return (
-    <Page>
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          {list.title}
-        </h1>
-        {list.description && (
-          <p className="mt-2 text-muted-foreground text-pretty">
-            {list.description}
-          </p>
-        )}
-      </header>
+    <PageShell header={header}>
+      <h1 className="text-2xl font-semibold tracking-tight text-balance">
+        {list.title}
+      </h1>
+      {list.description && (
+        <p className="mt-2 text-muted-foreground text-pretty">
+          {list.description}
+        </p>
+      )}
 
       {items.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted-foreground">
           Nothing on this list yet.
         </p>
       ) : (
-        <ul className="mt-8 divide-y border-y">
-          {items.map((item) => (
-            <ItemRow
-              key={item.itemId}
-              item={item}
-              onClaim={() => setClaiming(item)}
-              onUnclaim={() => unclaim.mutate(item)}
-              unclaiming={
-                unclaim.isPending && unclaim.variables?.itemId === item.itemId
-              }
-            />
-          ))}
-        </ul>
+        <>
+          {items.length >= MIN_ITEMS_FOR_CONTROLS && (
+            <div className="mt-8">
+              <ListControls
+                view={view}
+                onChange={setView}
+                tags={tags}
+                rankingLabel="List order"
+                showAvailableFilter
+                shownCount={shown.length}
+                totalCount={items.length}
+              />
+            </div>
+          )}
+
+          {shown.length > 0 ? (
+            <ul className="mt-4 divide-y border-y">
+              {shown.map((item) => (
+                <ItemRow
+                  key={item.itemId}
+                  item={item}
+                  onClaim={() => setClaiming(item)}
+                  onUnclaim={() => unclaim.mutate(item)}
+                  unclaiming={
+                    unclaim.isPending &&
+                    unclaim.variables?.itemId === item.itemId
+                  }
+                />
+              ))}
+            </ul>
+          ) : (
+            <p className="py-16 text-center text-sm text-muted-foreground">
+              No items match.
+            </p>
+          )}
+        </>
       )}
 
       <ClaimSheet
@@ -149,18 +191,7 @@ export default function SharedList() {
         onClose={() => setClaiming(undefined)}
         onClaimed={refresh}
       />
-    </Page>
-  );
-}
-
-function Page({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="relative mx-auto w-full max-w-xl px-4 pt-14 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:pt-16">
-      <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-2">
-        <ThemeToggle />
-      </div>
-      {children}
-    </main>
+    </PageShell>
   );
 }
 
@@ -175,16 +206,7 @@ function ItemRow({
   onUnclaim: () => void;
   unclaiming: boolean;
 }) {
-  const href = safeHref(item.url);
   const mine = item.claimed && getClaimSecret(item.itemId) !== undefined;
-  const details = [
-    item.price,
-    item.title?.trim() ? siteName(item.url) : undefined,
-    item.note,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
   const status = mine
     ? "Claimed by you"
     : item.claimerName
@@ -193,38 +215,11 @@ function ItemRow({
 
   return (
     <li className="flex items-center gap-3 py-3">
-      <div
-        className={
-          item.claimed
-            ? "flex min-w-0 flex-1 items-center gap-3 opacity-50"
-            : "flex min-w-0 flex-1 items-center gap-3"
-        }
-      >
-        <ItemThumbnail src={item.imageUrl} />
-        <div className="min-w-0">
-          {/* Shop names can be long, so allow two lines before truncating */}
-          {href ? (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="line-clamp-2 font-medium underline-offset-4 hover:underline"
-            >
-              {itemLabel(item)}
-            </a>
-          ) : (
-            <p className="line-clamp-2 font-medium">{itemLabel(item)}</p>
-          )}
-          {details && (
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-              {details}
-            </p>
-          )}
-          {item.claimed && (
-            <p className="mt-0.5 text-sm text-muted-foreground">{status}</p>
-          )}
-        </div>
-      </div>
+      <ItemSummary item={item} linkName dimmed={item.claimed}>
+        {item.claimed && (
+          <p className="mt-0.5 text-sm text-muted-foreground">{status}</p>
+        )}
+      </ItemSummary>
 
       {!item.claimed && (
         <Button variant="outline" size="lg" onClick={onClaim}>

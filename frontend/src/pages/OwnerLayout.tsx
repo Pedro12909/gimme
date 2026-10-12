@@ -5,9 +5,7 @@ import { RequireAuth } from "@/components/require-auth";
 export default function OwnerLayout() {
   return (
     <RequireAuth>
-      <div className="mx-auto w-full max-w-xl px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
-        <Outlet />
-      </div>
+      <Outlet />
     </RequireAuth>
   );
 }

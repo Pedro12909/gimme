@@ -2,13 +2,22 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FormSheet } from "@/components/form-sheet";
 import { Input } from "@/components/ui/input";
+import { ChevronRightIcon, PlusIcon, XIcon } from "lucide-react";
 import { ItemThumbnail } from "@/components/item-thumbnail";
+import { TagInput } from "@/components/tag-input";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { previewLink, type ItemInput, type ListInput } from "@/lib/owner-api";
 import { safeHref, siteName } from "@/lib/links";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { cn } from "@/lib/utils";
 
 // Limits match the owner Lambda's validation
 const LIMITS = {
@@ -17,6 +26,9 @@ const LIMITS = {
   itemTitle: 200,
   note: 500,
   url: 2048,
+  vendor: 60,
+  size: 60,
+  price: 32,
 };
 
 const fieldClass = "h-11 text-base";
@@ -104,13 +116,23 @@ function extractLink(text: string) {
   return text.match(/https?:\/\/\S+/)?.[0] ?? text;
 }
 
+const MAX_ALTERNATIVES = 5;
+
 const emptyItem: ItemInput = {
   url: "",
   title: "",
   note: "",
   imageUrl: "",
   price: "",
+  vendor: "",
+  size: "",
+  alternatives: [],
+  tags: [],
 };
+
+// Fields the preview can fill in; each is only filled while the owner hasn't typed their own
+type AutoField = "title" | "vendor" | "price";
+const AUTO_FIELDS: AutoField[] = ["title", "vendor", "price"];
 
 export function ItemFormSheet({
   open,
@@ -118,6 +140,7 @@ export function ItemFormSheet({
   heading,
   submitLabel,
   initial = emptyItem,
+  existingTags,
   submitting,
   onSave,
   secondaryAction,
@@ -127,6 +150,8 @@ export function ItemFormSheet({
   heading: string;
   submitLabel: string;
   initial?: ItemInput;
+  // Tags already used in this list, offered as suggestions
+  existingTags: string[];
   submitting: boolean;
   onSave: (input: ItemInput) => void;
   secondaryAction?: React.ReactNode;
@@ -137,7 +162,7 @@ export function ItemFormSheet({
   // Only complain once something has been typed, never on an empty field
   const showUrlError = url !== "" && !urlValid;
 
-  // Live preview: once a valid link has stopped changing, fetch its name, image and price
+  // Live preview: once a valid link has stopped changing, fetch its name, image, shop and price
   const debouncedUrl = useDebouncedValue(urlValid ? url : "", 400);
   const urlUnchanged = initial.url !== "" && url === initial.url;
   const preview = useQuery({
@@ -155,24 +180,68 @@ export function ItemFormSheet({
   const previewFailed =
     urlValid && !urlUnchanged && debouncedUrl === url && preview.isError;
 
-  // Editing without changing the link keeps the details saved with the item
+  // Editing without changing the link keeps the image saved with the item
   const imageUrl = urlUnchanged ? initial.imageUrl : (fetched?.imageUrl ?? "");
-  const price = urlUnchanged ? initial.price : (fetched?.price ?? "");
 
-  // Fill in the name from the page, but never overwrite one the owner typed
-  const [autoTitle, setAutoTitle] = useState<string>();
+  // Values last filled in by the preview: a field still holding one of these hasn't been
+  // touched by the owner, so a newer preview may replace it
+  const [autoFilled, setAutoFilled] = useState<
+    Partial<Record<AutoField, string>>
+  >({});
   useEffect(() => {
-    if (open) setAutoTitle(undefined);
+    if (open) setAutoFilled({});
   }, [open]);
   useEffect(() => {
-    const title = fetched?.title;
-    if (!title) return;
-    if (values.title.trim() === "" || values.title === autoTitle) {
-      set("title", title);
-      setAutoTitle(title);
+    if (!fetched) return;
+    const filled: Partial<Record<AutoField, string>> = {};
+    for (const field of AUTO_FIELDS) {
+      const next = fetched[field];
+      if (
+        next &&
+        (values[field].trim() === "" || values[field] === autoFilled[field])
+      ) {
+        set(field, next);
+        filled[field] = next;
+      }
     }
+    setAutoFilled((current) => ({ ...current, ...filled }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- react to new preview results only
   }, [fetched]);
+
+  // "More details" starts open when editing an item that already has some
+  const detailsSummary = [
+    values.vendor.trim(),
+    values.price.trim(),
+    values.size.trim(),
+    values.alternatives.filter((link) => link.trim()).length > 0
+      ? "other shops"
+      : "",
+  ].filter(Boolean);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setDetailsOpen(
+        Boolean(
+          initial.size ||
+          initial.alternatives.length > 0 ||
+          initial.price ||
+          initial.vendor,
+        ),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only decide when opening
+  }, [open]);
+
+  const alternativeErrors = values.alternatives.map(
+    (link) => link.trim() !== "" && safeHref(link.trim()) === undefined,
+  );
+  const setAlternative = (index: number, link: string) =>
+    set(
+      "alternatives",
+      values.alternatives.map((existing, i) =>
+        i === index ? extractLink(link) : existing,
+      ),
+    );
 
   return (
     <FormSheet
@@ -181,14 +250,20 @@ export function ItemFormSheet({
       title={heading}
       submitLabel={submitLabel}
       submitting={submitting}
-      canSubmit={urlValid}
+      canSubmit={urlValid && !alternativeErrors.some(Boolean)}
       onSubmit={() =>
         onSave({
           url,
           title: values.title.trim(),
           note: values.note.trim(),
           imageUrl,
-          price,
+          price: values.price.trim(),
+          vendor: values.vendor.trim(),
+          size: values.size.trim(),
+          alternatives: values.alternatives
+            .map((link) => link.trim())
+            .filter(Boolean),
+          tags: values.tags,
         })
       }
       secondaryAction={secondaryAction}
@@ -229,20 +304,15 @@ export function ItemFormSheet({
               <Skeleton className="h-4 w-1/4" />
             </div>
           </div>
-        ) : imageUrl || price ? (
-          <div className="flex items-center gap-3">
-            <ItemThumbnail src={imageUrl || undefined} />
-            <div className="min-w-0 text-sm">
-              <p className="truncate text-muted-foreground">{siteName(url)}</p>
-              {price && <p className="font-medium">{price}</p>}
-            </div>
-          </div>
+        ) : imageUrl ? (
+          <ItemThumbnail src={imageUrl} />
         ) : previewFailed ? (
           <p id="item-url-preview" className="text-sm text-muted-foreground">
             Couldn't get details from this shop. Add a name below.
           </p>
         ) : null}
       </div>
+
       <div className="grid gap-2">
         <Label htmlFor="item-title">Name (optional)</Label>
         <Input
@@ -254,17 +324,146 @@ export function ItemFormSheet({
           className={fieldClass}
         />
       </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="item-tags">Tags (optional)</Label>
+        <TagInput
+          id="item-tags"
+          value={values.tags}
+          onChange={(tags) => set("tags", tags)}
+          suggestions={existingTags}
+        />
+      </div>
+
       <div className="grid gap-2">
         <Label htmlFor="item-note">Note (optional)</Label>
         <Textarea
           id="item-note"
-          placeholder="Size, colour, anything that helps"
+          placeholder="Anything that helps, e.g. gift wrap please"
           value={values.note}
           onChange={(event) => set("note", event.target.value)}
           maxLength={LIMITS.note}
           className={textareaClass}
         />
       </div>
+
+      <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md py-1 text-left text-sm font-medium">
+          <ChevronRightIcon
+            className={cn(
+              "size-4 transition-transform",
+              detailsOpen && "rotate-90",
+            )}
+          />
+          More details
+          {!detailsOpen && detailsSummary.length > 0 && (
+            <span className="min-w-0 truncate font-normal text-muted-foreground">
+              · {detailsSummary.join(" · ")}
+            </span>
+          )}
+        </CollapsibleTrigger>
+
+        <CollapsibleContent className="grid gap-5 pt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor="item-vendor">Shop</Label>
+              <Input
+                id="item-vendor"
+                placeholder={urlValid ? siteName(url) : "e.g. Amazon"}
+                value={values.vendor}
+                onChange={(event) => set("vendor", event.target.value)}
+                maxLength={LIMITS.vendor}
+                autoComplete="off"
+                className={fieldClass}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="item-price">Price</Label>
+              <Input
+                id="item-price"
+                placeholder="e.g. €19.99"
+                value={values.price}
+                onChange={(event) => set("price", event.target.value)}
+                maxLength={LIMITS.price}
+                autoComplete="off"
+                className={fieldClass}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="item-size">Size or variant</Label>
+            <Input
+              id="item-size"
+              placeholder="e.g. M, EU 42, 256 GB blue"
+              value={values.size}
+              onChange={(event) => set("size", event.target.value)}
+              maxLength={LIMITS.size}
+              autoComplete="off"
+              className={fieldClass}
+            />
+          </div>
+
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 text-sm font-medium">
+              Other places to buy it
+            </legend>
+            {values.alternatives.map((link, index) => (
+              <div key={index} className="grid gap-1">
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://"
+                    aria-label={`Other shop link ${index + 1}`}
+                    value={link}
+                    onChange={(event) =>
+                      setAlternative(index, event.target.value)
+                    }
+                    maxLength={LIMITS.url}
+                    autoComplete="off"
+                    aria-invalid={alternativeErrors[index]}
+                    className={fieldClass}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-lg"
+                    className="size-11 shrink-0"
+                    aria-label={`Remove other shop link ${index + 1}`}
+                    onClick={() =>
+                      set(
+                        "alternatives",
+                        values.alternatives.filter((_, i) => i !== index),
+                      )
+                    }
+                  >
+                    <XIcon />
+                  </Button>
+                </div>
+                {alternativeErrors[index] && (
+                  <p className="text-sm text-destructive">
+                    Paste a full link, starting with https://
+                  </p>
+                )}
+              </div>
+            ))}
+            {values.alternatives.length < MAX_ALTERNATIVES && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 justify-start"
+                onClick={() =>
+                  set("alternatives", [...values.alternatives, ""])
+                }
+              >
+                <PlusIcon />
+                Add a link
+              </Button>
+            )}
+          </fieldset>
+        </CollapsibleContent>
+      </Collapsible>
     </FormSheet>
   );
 }

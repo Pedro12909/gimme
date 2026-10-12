@@ -16,6 +16,7 @@ import {
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import * as crypto from "node:crypto";
+import { compareItems } from "../shared/item-order";
 
 type Bindings = {
   requestContext: ApiGatewayRequestContextV2;
@@ -81,10 +82,8 @@ app.get("/share/:token", async (ctx) => {
     claimsMap.set(claim.itemId, claim);
   });
 
-  // The sort key is a random UUID, so restore the order the owner added items in
-  const sortedItems = (itemsResult.Items ?? []).sort((a, b) =>
-    String(a.createdAt).localeCompare(String(b.createdAt)),
-  );
+  // In the owner's ranking; guests can re-sort on their side
+  const sortedItems = (itemsResult.Items ?? []).sort(compareItems);
 
   const items = sortedItems.map((item) => {
     const claim = claimsMap.get(item.itemId);
@@ -96,6 +95,12 @@ app.get("/share/:token", async (ctx) => {
       note: item.note,
       imageUrl: item.imageUrl,
       price: item.price,
+      priceValue: item.priceValue,
+      vendor: item.vendor,
+      size: item.size,
+      alternatives: item.alternatives,
+      tags: item.tags,
+      createdAt: item.createdAt,
       claimed: claim !== undefined,
       claimerName: claim?.claimerName,
     };

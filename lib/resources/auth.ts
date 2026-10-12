@@ -1,6 +1,8 @@
 import * as cdk from "aws-cdk-lib/core";
 import { Duration } from "aws-cdk-lib/core";
 import { aws_cognito } from "aws-cdk-lib";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 
 export type Auth = {
   userPool: aws_cognito.UserPool;
@@ -8,7 +10,7 @@ export type Auth = {
 };
 
 // Owners only: guests never get accounts, they use share tokens instead
-export function createAuth(stack: cdk.Stack): Auth {
+export function createAuth(stack: cdk.Stack, siteUrl: string): Auth {
   const userPool = new aws_cognito.UserPool(stack, "UserPool", {
     // Invite-only: accounts are created by an admin (AdminCreateUser). Guests never need one.
     selfSignUpEnabled: false,
@@ -32,6 +34,19 @@ export function createAuth(stack: cdk.Stack): Auth {
     },
     removalPolicy: cdk.RemovalPolicy.DESTROY,
   });
+
+  // Rewords every email Cognito sends (sign-in code, verification, invite). Only the
+  // sign-in code email strictly needs this; there's no template setting for it.
+  const authEmailsFn = new NodejsFunction(stack, "AuthEmailsFn", {
+    entry: "lambda/auth-emails/index.ts",
+    handler: "handler",
+    runtime: lambda.Runtime.NODEJS_22_X,
+    environment: { SITE_URL: siteUrl },
+  });
+  userPool.addTrigger(
+    aws_cognito.UserPoolOperation.CUSTOM_MESSAGE,
+    authEmailsFn,
+  );
 
   const userPoolClient = userPool.addClient("UserPoolClient", {
     authFlows: {

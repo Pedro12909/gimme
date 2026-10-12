@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Wordmark } from "@/components/wordmark";
+import { PageShell } from "@/components/page-shell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   confirmCode,
@@ -128,13 +129,16 @@ export default function SignIn() {
   };
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-sm flex-col px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
-      <header className="flex h-10 items-center justify-between">
-        <Wordmark />
-        <ThemeToggle />
-      </header>
-
-      <main className="flex flex-1 flex-col justify-center pb-16">
+    <PageShell
+      header={
+        <>
+          <Wordmark />
+          <ThemeToggle />
+        </>
+      }
+      mainClassName="flex flex-col justify-center py-16"
+    >
+      <div className="mx-auto w-full max-w-sm">
         {!mode ? (
           <form onSubmit={submitEmail} noValidate>
             <h1 className="text-2xl font-semibold tracking-tight">
@@ -246,8 +250,8 @@ export default function SignIn() {
             </div>
           </form>
         )}
-      </main>
-    </div>
+      </div>
+    </PageShell>
   );
 }
 

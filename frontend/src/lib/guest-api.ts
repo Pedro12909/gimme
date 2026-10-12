@@ -10,6 +10,12 @@ export type SharedItem = {
   note?: string;
   imageUrl?: string;
   price?: string;
+  priceValue?: number;
+  vendor?: string;
+  size?: string;
+  alternatives?: string[];
+  tags?: string[];
+  createdAt: string;
   claimed: boolean;
   claimerName?: string;
 };

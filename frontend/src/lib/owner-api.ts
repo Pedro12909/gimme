@@ -35,6 +35,12 @@ export type Item = {
   note?: string;
   imageUrl?: string;
   price?: string;
+  priceValue?: number;
+  vendor?: string;
+  size?: string;
+  alternatives?: string[];
+  tags?: string[];
+  position?: string;
   createdAt: string;
 };
 
@@ -48,9 +54,18 @@ export type ItemInput = {
   note: string;
   imageUrl: string;
   price: string;
+  vendor: string;
+  size: string;
+  alternatives: string[];
+  tags: string[];
 };
 
-export type LinkPreview = { title?: string; imageUrl?: string; price?: string };
+export type LinkPreview = {
+  title?: string;
+  imageUrl?: string;
+  price?: string;
+  vendor?: string;
+};
 
 const listPath = (listId: string) => `/lists/${encodeURIComponent(listId)}`;
 const itemPath = (listId: string, itemId: string) =>
@@ -75,6 +90,10 @@ export const addItem = (listId: string, input: ItemInput) =>
 
 export const updateItem = (listId: string, itemId: string, input: ItemInput) =>
   ownerRequest<Item>(itemPath(listId, itemId), json("PATCH", input));
+
+// Reordering only ever changes the moved item's position key
+export const moveItem = (listId: string, itemId: string, position: string) =>
+  ownerRequest<Item>(itemPath(listId, itemId), json("PATCH", { position }));
 
 export const deleteItem = (listId: string, itemId: string) =>
   ownerRequest<void>(itemPath(listId, itemId), { method: "DELETE" });

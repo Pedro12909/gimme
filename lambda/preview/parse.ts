@@ -6,6 +6,7 @@ export type Preview = {
   title?: string;
   imageUrl?: string;
   price?: string;
+  vendor?: string;
 };
 
 // Matches the owner Lambda's item title limit
@@ -46,15 +47,31 @@ const TITLE_SEPARATORS = [" | ", " - ", " – ", " — ", " : "];
 // Page titles often end with the shop's name, e.g. "Check Cashmere Scarf | Burberry® Official".
 // A trailing segment is dropped only when it mentions the shop, so product names that
 // contain a separator themselves are left alone.
-function stripShopName(title: string | undefined, url: URL) {
-  if (!title) return title;
-  const shop = url.hostname
+// The shop's brand from its domain: "www.fnac.pt" → "fnac", "uk.burberry.com" → "burberry"
+function shopLabel(url: URL) {
+  return url.hostname
     .replace(/^www\./, "")
     .split(".")
     .find(
       (label) =>
         label.length > 2 && !["www", "com", "shop", "store"].includes(label),
     );
+}
+
+// Shop names declared by pages vary ("Burberry United Kingdom", "Allbirds UK", none at all),
+// so the vendor comes from the domain, using the page's casing when it starts with it ("IKEA")
+export function vendorFromUrl(url: URL, siteName?: string) {
+  const label = shopLabel(url);
+  if (!label) return undefined;
+  if (siteName?.toLowerCase().startsWith(label.toLowerCase())) {
+    return siteName.slice(0, label.length);
+  }
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function stripShopName(title: string | undefined, url: URL) {
+  if (!title) return title;
+  const shop = shopLabel(url);
   if (!shop) return title;
 
   for (const separator of TITLE_SEPARATORS) {
@@ -192,6 +209,7 @@ function parseGeneric(html: string, base: URL): Preview {
       cleanImageUrl(firstImage(product?.image), base) ??
       cleanImageUrl(meta.get("og:image:secure_url"), base) ??
       cleanImageUrl(meta.get("og:image"), base),
+    vendor: vendorFromUrl(base, cleanText(meta.get("og:site_name"))),
     price:
       formatPrice(offer?.price ?? offer?.lowPrice, offer?.priceCurrency) ??
       formatPrice(
@@ -241,6 +259,7 @@ export function parsePreview(html: string, finalUrl: URL): Preview {
     title: amazon.title ?? generic.title,
     imageUrl: amazon.imageUrl ?? generic.imageUrl,
     price: amazon.price ?? generic.price,
+    vendor: "Amazon",
   };
 }
 

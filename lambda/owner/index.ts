@@ -17,6 +17,12 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import * as crypto from "node:crypto";
+import {
+  backfillPositions,
+  compareItems,
+  positionAfter,
+} from "../shared/item-order";
+import { isCleared, readItemInput } from "./item-input";
 
 type Bindings = {
   requestContext: ApiGatewayRequestContextV2;
@@ -39,10 +45,6 @@ const itemsTableName = process.env["ITEMS_TABLE_NAME"];
 const LIMITS = {
   listTitle: 100,
   description: 500,
-  itemTitle: 200,
-  note: 500,
-  url: 2048,
-  price: 32,
 };
 
 const readBody = async (req: {
@@ -78,44 +80,6 @@ const checkText = (
     return `${field} must be at most ${max} characters`;
   }
   return undefined;
-};
-
-// Guests open these links, so anything other than a web link (e.g. javascript:) is rejected
-const checkUrl = (value: unknown, required = false) => {
-  const textError = checkText(value, "url", LIMITS.url, required);
-  if (textError || value === undefined) {
-    return textError;
-  }
-
-  try {
-    const { protocol } = new URL(value as string);
-    if (protocol === "http:" || protocol === "https:") {
-      return undefined;
-    }
-  } catch {
-    // Not a parseable URL
-  }
-  return "url must be an http or https link";
-};
-
-// Shown to guests on an https page, so only https images are accepted. Empty means "no image".
-const checkImageUrl = (value: unknown) => {
-  if (value === undefined || value === "") {
-    return undefined;
-  }
-  const textError = checkText(value, "imageUrl", LIMITS.url);
-  if (textError) {
-    return textError;
-  }
-
-  try {
-    if (new URL(value as string).protocol === "https:") {
-      return undefined;
-    }
-  } catch {
-    // Not a parseable URL
-  }
-  return "imageUrl must be an https link";
 };
 
 // Middleware
@@ -209,9 +173,30 @@ app.get("/lists/:listId", async (ctx) => {
     }),
   );
 
-  // The sort key is a random UUID, so restore the order items were added in
-  const items = (itemsResult.Items ?? []).sort((a, b) =>
-    String(a.createdAt).localeCompare(String(b.createdAt)),
+  const items = (itemsResult.Items ?? []).sort(compareItems);
+
+  // Items saved before ranking existed get positions once, keeping their current order
+  const backfill = backfillPositions(items);
+  await Promise.all(
+    backfill.map(async ({ item, position }) => {
+      try {
+        await documentClient.send(
+          new UpdateCommand({
+            TableName: itemsTableName,
+            Key: { listId, itemId: item.itemId },
+            ConditionExpression:
+              "attribute_exists(itemId) AND attribute_not_exists(#position)",
+            UpdateExpression: "SET #position = :position",
+            ExpressionAttributeNames: { "#position": "position" },
+            ExpressionAttributeValues: { ":position": position },
+          }),
+        );
+        item.position = position;
+      } catch (err) {
+        // Deleted or ranked by another request in the meantime; its order is still correct
+        if (!(err instanceof ConditionalCheckFailedException)) throw err;
+      }
+    }),
   );
 
   return ctx.json({ ...listResult.Item, items });
@@ -347,28 +332,32 @@ app.post("/lists/:listId/items", async (ctx) => {
     return ctx.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { url, title, note, imageUrl, price } = body;
-  const error =
-    checkUrl(url, true) ??
-    checkText(title, "title", LIMITS.itemTitle) ??
-    checkText(note, "note", LIMITS.note) ??
-    checkImageUrl(imageUrl) ??
-    checkText(price, "price", LIMITS.price);
-  if (error) {
-    return ctx.json({ error }, 400);
+  const input = readItemInput(body, "create");
+  if ("error" in input) {
+    return ctx.json({ error: input.error }, 400);
   }
 
-  const itemId = crypto.randomUUID();
+  // New items go to the bottom of the owner's ranking
+  const positionsResult = await documentClient.send(
+    new QueryCommand({
+      TableName: itemsTableName,
+      KeyConditionExpression: "listId = :listId",
+      ProjectionExpression: "#position",
+      ExpressionAttributeNames: { "#position": "position" },
+      ExpressionAttributeValues: { ":listId": listId },
+    }),
+  );
+
+  // Empty optional fields are left out rather than stored as ""
+  const fields = Object.fromEntries(
+    Object.entries(input.fields).filter(([, value]) => !isCleared(value)),
+  );
 
   const item = {
+    ...fields,
     listId,
-    itemId,
-    url,
-    // Empty optional fields are left out rather than stored as ""
-    title: title || undefined,
-    note: note || undefined,
-    imageUrl: imageUrl || undefined,
-    price: price || undefined,
+    itemId: crypto.randomUUID(),
+    position: positionAfter(positionsResult.Items ?? []),
     createdAt: new Date().toISOString(),
   };
 
@@ -406,15 +395,9 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
     return ctx.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { url, title, note, imageUrl, price } = body;
-  const error =
-    checkUrl(url, url !== undefined) ??
-    checkText(title, "title", LIMITS.itemTitle) ??
-    checkText(note, "note", LIMITS.note) ??
-    checkImageUrl(imageUrl) ??
-    checkText(price, "price", LIMITS.price);
-  if (error) {
-    return ctx.json({ error }, 400);
+  const input = readItemInput(body, "update");
+  if ("error" in input) {
+    return ctx.json({ error: input.error }, 400);
   }
 
   const sets: string[] = [];
@@ -422,21 +405,12 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
   const names: Record<string, string> = {};
   const values: Record<string, unknown> = {};
 
-  for (const [field, value] of Object.entries({
-    url,
-    title,
-    note,
-    imageUrl,
-    price,
-  })) {
-    if (value === undefined) {
-      continue;
-    }
-    // Attribute names go through placeholders, since words like "url" can clash with DynamoDB reserved words
+  for (const [field, value] of Object.entries(input.fields)) {
+    // Attribute names go through placeholders, since words like "url" and "size" clash with DynamoDB reserved words
     names[`#${field}`] = field;
 
-    // Clearing an optional field removes it rather than storing "" (url is required, so never empty here)
-    if (value === "") {
+    // Clearing an optional field removes it rather than storing "" or [] (url is never empty here)
+    if (isCleared(value)) {
       removes.push(`#${field}`);
     } else {
       sets.push(`#${field} = :${field}`);

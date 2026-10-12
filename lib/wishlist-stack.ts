@@ -22,8 +22,8 @@ export class WishlistStack extends cdk.Stack {
     super(scope, id, props);
 
     const tables = createTables(this);
-    const auth = createAuth(this);
     const site = createSite(this, props.site);
+    const auth = createAuth(this, site.siteUrl);
 
     const { httpApi } = createApi(this, {
       auth,

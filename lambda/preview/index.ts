@@ -4,7 +4,12 @@ import {
   handle,
   LambdaContext,
 } from "hono/aws-lambda";
-import { looksBlocked, nameFromUrl, parsePreview } from "./parse";
+import {
+  looksBlocked,
+  nameFromUrl,
+  parsePreview,
+  vendorFromUrl,
+} from "./parse";
 import { FetchRefused, safeFetchHtml } from "./safe-fetch";
 
 // Link preview for owners adding an item: fetches the page and returns its name, image and
@@ -36,7 +41,9 @@ app.post("/preview", async (ctx) => {
   // When the page itself can't be read, a name from the link is better than nothing
   const fallback = (finalUrl: URL, error: string, status: 502 | 504) => {
     const title = nameFromUrl(finalUrl);
-    return title ? ctx.json({ title }) : ctx.json({ error }, status);
+    return title
+      ? ctx.json({ title, vendor: vendorFromUrl(finalUrl) })
+      : ctx.json({ error }, status);
   };
 
   try {
