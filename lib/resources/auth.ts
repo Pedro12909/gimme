@@ -10,7 +10,8 @@ export type Auth = {
 // Owners only: guests never get accounts, they use share tokens instead
 export function createAuth(stack: cdk.Stack): Auth {
   const userPool = new aws_cognito.UserPool(stack, "UserPool", {
-    selfSignUpEnabled: true,
+    // Invite-only: accounts are created by an admin (AdminCreateUser). Guests never need one.
+    selfSignUpEnabled: false,
     // Sign-in settings can't change on an existing pool; changing them replaces it
     signInAliases: { email: true },
     signInCaseSensitive: false,

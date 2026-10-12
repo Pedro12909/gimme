@@ -8,6 +8,8 @@ export type SharedItem = {
   url: string;
   title?: string;
   note?: string;
+  imageUrl?: string;
+  price?: string;
   claimed: boolean;
   claimerName?: string;
 };

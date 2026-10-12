@@ -25,6 +25,8 @@ function errorMessage(err: unknown): string {
   const name = err instanceof Error ? err.name : "";
 
   switch (name) {
+    case "NotInvited":
+      return "gimme is invite-only for now, and this email hasn't been invited.";
     case "CodeMismatchException":
       return "That code isn't right. Check it and try again.";
     case "ExpiredCodeException":

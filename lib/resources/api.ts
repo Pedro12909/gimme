@@ -50,6 +50,16 @@ export function createApi(
   itemsTable.grantReadData(guestApiFn);
   claimsTable.grantReadWriteData(guestApiFn);
 
+  // Fetches shop pages for the add-item preview: internet access, but no table access at all
+  const previewFn = new NodejsFunction(stack, "PreviewFn", {
+    entry: "lambda/preview/index.ts",
+    handler: "handler",
+    runtime: lambda.Runtime.NODEJS_22_X,
+    // Shop pages take 1-3 s; the fetch itself gives up after 8 s
+    timeout: Duration.seconds(15),
+    memorySize: 512,
+  });
+
   const authorizer = new aws_apigatewayv2_authorizers.HttpUserPoolAuthorizer(
     "Authorizer",
     auth.userPool,
@@ -61,6 +71,10 @@ export function createApi(
   const ownerApiIntegration = new HttpLambdaIntegration(
     "WishlistOwnerApiIntegration",
     ownerApiFn,
+  );
+  const previewIntegration = new HttpLambdaIntegration(
+    "WishlistPreviewIntegration",
+    previewFn,
   );
   const guestApiIntegration = new HttpLambdaIntegration(
     "WishlistGuestApiIntegration",
@@ -97,6 +111,12 @@ export function createApi(
       HttpMethod.DELETE,
     ],
     integration: ownerApiIntegration,
+    authorizer,
+  });
+  httpApi.addRoutes({
+    path: "/preview",
+    methods: [HttpMethod.POST],
+    integration: previewIntegration,
     authorizer,
   });
   // Guests have no account: access comes from the unguessable share token in the path

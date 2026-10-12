@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FormSheet } from "@/components/form-sheet";
+import { ItemThumbnail } from "@/components/item-thumbnail";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,6 +178,7 @@ function ItemRow({
   const href = safeHref(item.url);
   const mine = item.claimed && getClaimSecret(item.itemId) !== undefined;
   const details = [
+    item.price,
     item.title?.trim() ? siteName(item.url) : undefined,
     item.note,
   ]
@@ -190,32 +192,38 @@ function ItemRow({
       : "Claimed";
 
   return (
-    <li className="flex items-center gap-4 py-4">
+    <li className="flex items-center gap-3 py-3">
       <div
         className={
-          item.claimed ? "min-w-0 flex-1 opacity-50" : "min-w-0 flex-1"
+          item.claimed
+            ? "flex min-w-0 flex-1 items-center gap-3 opacity-50"
+            : "flex min-w-0 flex-1 items-center gap-3"
         }
       >
-        {href ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block truncate font-medium underline-offset-4 hover:underline"
-          >
-            {itemLabel(item)}
-          </a>
-        ) : (
-          <p className="truncate font-medium">{itemLabel(item)}</p>
-        )}
-        {details && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
-            {details}
-          </p>
-        )}
-        {item.claimed && (
-          <p className="mt-0.5 text-sm text-muted-foreground">{status}</p>
-        )}
+        <ItemThumbnail src={item.imageUrl} />
+        <div className="min-w-0">
+          {/* Shop names can be long, so allow two lines before truncating */}
+          {href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="line-clamp-2 font-medium underline-offset-4 hover:underline"
+            >
+              {itemLabel(item)}
+            </a>
+          ) : (
+            <p className="line-clamp-2 font-medium">{itemLabel(item)}</p>
+          )}
+          {details && (
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+              {details}
+            </p>
+          )}
+          {item.claimed && (
+            <p className="mt-0.5 text-sm text-muted-foreground">{status}</p>
+          )}
+        </div>
       </div>
 
       {!item.claimed && (

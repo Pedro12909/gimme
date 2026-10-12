@@ -49,13 +49,24 @@ export async function sendCode(email: string): Promise<CodeMode> {
       throw err;
     }
 
-    await signUp({
-      username: email,
-      options: {
-        userAttributes: { email },
-        autoSignIn: { authFlowType: "USER_AUTH" },
-      },
-    });
+    try {
+      await signUp({
+        username: email,
+        options: {
+          userAttributes: { email },
+          autoSignIn: { authFlowType: "USER_AUTH" },
+        },
+      });
+    } catch (signUpErr) {
+      // Self sign-up is turned off in the user pool, so unknown emails can't create an account
+      if (
+        signUpErr instanceof Error &&
+        signUpErr.name === "NotAuthorizedException"
+      ) {
+        throw new NotInvited();
+      }
+      throw signUpErr;
+    }
     return "signUp";
   }
 }
@@ -65,6 +76,14 @@ export async function resendCode(email: string, mode: CodeMode) {
     await resendSignUpCode({ username: email });
   } else {
     await signInWithEmailCode(email);
+  }
+}
+
+// Thrown when an email has no account and sign-up is closed (invite-only)
+export class NotInvited extends Error {
+  constructor() {
+    super("This email hasn't been invited.");
+    this.name = "NotInvited";
   }
 }
 

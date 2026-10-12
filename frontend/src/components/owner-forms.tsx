@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { FormSheet } from "@/components/form-sheet";
 import { Input } from "@/components/ui/input";
+import { ItemThumbnail } from "@/components/item-thumbnail";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import type { ItemInput, ListInput } from "@/lib/owner-api";
-import { safeHref } from "@/lib/links";
+import { previewLink, type ItemInput, type ListInput } from "@/lib/owner-api";
+import { safeHref, siteName } from "@/lib/links";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 // Limits match the owner Lambda's validation
 const LIMITS = {
@@ -93,12 +97,27 @@ export function ListFormSheet({
   );
 }
 
+// Text shared from shopping apps often wraps the link, e.g. "Kindle Paperwhite https://amzn.eu/d/abc",
+// so a pasted message is reduced to the link inside it
+function extractLink(text: string) {
+  if (!/\s/.test(text.trim())) return text;
+  return text.match(/https?:\/\/\S+/)?.[0] ?? text;
+}
+
+const emptyItem: ItemInput = {
+  url: "",
+  title: "",
+  note: "",
+  imageUrl: "",
+  price: "",
+};
+
 export function ItemFormSheet({
   open,
   onOpenChange,
   heading,
   submitLabel,
-  initial = { url: "", title: "", note: "" },
+  initial = emptyItem,
   submitting,
   onSave,
   secondaryAction,
@@ -118,6 +137,43 @@ export function ItemFormSheet({
   // Only complain once something has been typed, never on an empty field
   const showUrlError = url !== "" && !urlValid;
 
+  // Live preview: once a valid link has stopped changing, fetch its name, image and price
+  const debouncedUrl = useDebouncedValue(urlValid ? url : "", 400);
+  const urlUnchanged = initial.url !== "" && url === initial.url;
+  const preview = useQuery({
+    queryKey: ["preview", debouncedUrl],
+    queryFn: () => previewLink(debouncedUrl),
+    enabled:
+      open && debouncedUrl !== "" && debouncedUrl === url && !urlUnchanged,
+    retry: false,
+    staleTime: Infinity,
+  });
+  const fetched =
+    !urlUnchanged && debouncedUrl === url ? preview.data : undefined;
+  const previewing =
+    urlValid && !urlUnchanged && (debouncedUrl !== url || preview.isFetching);
+  const previewFailed =
+    urlValid && !urlUnchanged && debouncedUrl === url && preview.isError;
+
+  // Editing without changing the link keeps the details saved with the item
+  const imageUrl = urlUnchanged ? initial.imageUrl : (fetched?.imageUrl ?? "");
+  const price = urlUnchanged ? initial.price : (fetched?.price ?? "");
+
+  // Fill in the name from the page, but never overwrite one the owner typed
+  const [autoTitle, setAutoTitle] = useState<string>();
+  useEffect(() => {
+    if (open) setAutoTitle(undefined);
+  }, [open]);
+  useEffect(() => {
+    const title = fetched?.title;
+    if (!title) return;
+    if (values.title.trim() === "" || values.title === autoTitle) {
+      set("title", title);
+      setAutoTitle(title);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to new preview results only
+  }, [fetched]);
+
   return (
     <FormSheet
       open={open}
@@ -127,7 +183,13 @@ export function ItemFormSheet({
       submitting={submitting}
       canSubmit={urlValid}
       onSubmit={() =>
-        onSave({ url, title: values.title.trim(), note: values.note.trim() })
+        onSave({
+          url,
+          title: values.title.trim(),
+          note: values.note.trim(),
+          imageUrl,
+          price,
+        })
       }
       secondaryAction={secondaryAction}
     >
@@ -139,11 +201,17 @@ export function ItemFormSheet({
           inputMode="url"
           placeholder="https://"
           value={values.url}
-          onChange={(event) => set("url", event.target.value)}
+          onChange={(event) => set("url", extractLink(event.target.value))}
           maxLength={LIMITS.url}
           autoComplete="off"
           aria-invalid={showUrlError}
-          aria-describedby={showUrlError ? "item-url-error" : undefined}
+          aria-describedby={
+            showUrlError
+              ? "item-url-error"
+              : previewFailed
+                ? "item-url-preview"
+                : undefined
+          }
           className={fieldClass}
         />
         {showUrlError && (
@@ -151,6 +219,29 @@ export function ItemFormSheet({
             Paste a full link, starting with https://
           </p>
         )}
+
+        {previewing ? (
+          <div className="flex items-center gap-3" aria-live="polite">
+            <Skeleton className="size-14 shrink-0 rounded-md" />
+            <div className="grid flex-1 gap-2">
+              <Skeleton className="h-4 w-3/4" />
+              <span className="sr-only">Fetching details</span>
+              <Skeleton className="h-4 w-1/4" />
+            </div>
+          </div>
+        ) : imageUrl || price ? (
+          <div className="flex items-center gap-3">
+            <ItemThumbnail src={imageUrl || undefined} />
+            <div className="min-w-0 text-sm">
+              <p className="truncate text-muted-foreground">{siteName(url)}</p>
+              {price && <p className="font-medium">{price}</p>}
+            </div>
+          </div>
+        ) : previewFailed ? (
+          <p id="item-url-preview" className="text-sm text-muted-foreground">
+            Couldn't get details from this shop. Add a name below.
+          </p>
+        ) : null}
       </div>
       <div className="grid gap-2">
         <Label htmlFor="item-title">Name (optional)</Label>

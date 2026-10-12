@@ -42,6 +42,7 @@ const LIMITS = {
   itemTitle: 200,
   note: 500,
   url: 2048,
+  price: 32,
 };
 
 const readBody = async (req: {
@@ -95,6 +96,26 @@ const checkUrl = (value: unknown, required = false) => {
     // Not a parseable URL
   }
   return "url must be an http or https link";
+};
+
+// Shown to guests on an https page, so only https images are accepted. Empty means "no image".
+const checkImageUrl = (value: unknown) => {
+  if (value === undefined || value === "") {
+    return undefined;
+  }
+  const textError = checkText(value, "imageUrl", LIMITS.url);
+  if (textError) {
+    return textError;
+  }
+
+  try {
+    if (new URL(value as string).protocol === "https:") {
+      return undefined;
+    }
+  } catch {
+    // Not a parseable URL
+  }
+  return "imageUrl must be an https link";
 };
 
 // Middleware
@@ -326,11 +347,13 @@ app.post("/lists/:listId/items", async (ctx) => {
     return ctx.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { url, title, note } = body;
+  const { url, title, note, imageUrl, price } = body;
   const error =
     checkUrl(url, true) ??
     checkText(title, "title", LIMITS.itemTitle) ??
-    checkText(note, "note", LIMITS.note);
+    checkText(note, "note", LIMITS.note) ??
+    checkImageUrl(imageUrl) ??
+    checkText(price, "price", LIMITS.price);
   if (error) {
     return ctx.json({ error }, 400);
   }
@@ -341,8 +364,11 @@ app.post("/lists/:listId/items", async (ctx) => {
     listId,
     itemId,
     url,
-    title,
-    note,
+    // Empty optional fields are left out rather than stored as ""
+    title: title || undefined,
+    note: note || undefined,
+    imageUrl: imageUrl || undefined,
+    price: price || undefined,
     createdAt: new Date().toISOString(),
   };
 
@@ -380,34 +406,54 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
     return ctx.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { url, title, note } = body;
+  const { url, title, note, imageUrl, price } = body;
   const error =
     checkUrl(url, url !== undefined) ??
     checkText(title, "title", LIMITS.itemTitle) ??
-    checkText(note, "note", LIMITS.note);
+    checkText(note, "note", LIMITS.note) ??
+    checkImageUrl(imageUrl) ??
+    checkText(price, "price", LIMITS.price);
   if (error) {
     return ctx.json({ error }, 400);
   }
 
-  const updates: string[] = [];
+  const sets: string[] = [];
+  const removes: string[] = [];
+  const names: Record<string, string> = {};
   const values: Record<string, unknown> = {};
 
-  if (url !== undefined) {
-    updates.push("url = :url");
-    values[":url"] = url;
-  }
-  if (title !== undefined) {
-    updates.push("title = :title");
-    values[":title"] = title;
-  }
-  if (note !== undefined) {
-    updates.push("note = :note");
-    values[":note"] = note;
+  for (const [field, value] of Object.entries({
+    url,
+    title,
+    note,
+    imageUrl,
+    price,
+  })) {
+    if (value === undefined) {
+      continue;
+    }
+    // Attribute names go through placeholders, since words like "url" can clash with DynamoDB reserved words
+    names[`#${field}`] = field;
+
+    // Clearing an optional field removes it rather than storing "" (url is required, so never empty here)
+    if (value === "") {
+      removes.push(`#${field}`);
+    } else {
+      sets.push(`#${field} = :${field}`);
+      values[`:${field}`] = value;
+    }
   }
 
-  if (updates.length === 0) {
+  if (sets.length === 0 && removes.length === 0) {
     return ctx.json({ error: "Nothing to update" }, 400);
   }
+
+  const updateExpression = [
+    sets.length > 0 ? `SET ${sets.join(", ")}` : "",
+    removes.length > 0 ? `REMOVE ${removes.join(", ")}` : "",
+  ]
+    .join(" ")
+    .trim();
 
   try {
     const result = await documentClient.send(
@@ -415,8 +461,10 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
         TableName: itemsTableName,
         Key: { listId, itemId },
         ConditionExpression: "attribute_exists(itemId)",
-        UpdateExpression: `SET ${updates.join(", ")}`,
-        ExpressionAttributeValues: values,
+        UpdateExpression: updateExpression,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues:
+          Object.keys(values).length > 0 ? values : undefined,
         ReturnValues: "ALL_NEW",
       }),
     );

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ItemThumbnail } from "@/components/item-thumbnail";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ItemFormSheet, ListFormSheet } from "@/components/owner-forms";
 import { Button } from "@/components/ui/button";
@@ -318,6 +319,8 @@ export default function ListDetail() {
             url: editing.url,
             title: editing.title ?? "",
             note: editing.note ?? "",
+            imageUrl: editing.imageUrl ?? "",
+            price: editing.price ?? "",
           }
         }
         submitting={update.isPending}
@@ -383,6 +386,7 @@ export default function ListDetail() {
 function ItemRow({ item, onEdit }: { item: Item; onEdit: () => void }) {
   const href = safeHref(item.url);
   const details = [
+    item.price,
     item.title?.trim() ? siteName(item.url) : undefined,
     item.note,
   ]
@@ -395,14 +399,18 @@ function ItemRow({ item, onEdit }: { item: Item; onEdit: () => void }) {
       <button
         type="button"
         onClick={onEdit}
-        className="-ml-2 min-w-0 flex-1 rounded-md py-4 pl-2 text-left hover:bg-muted/50"
+        className="-ml-2 flex min-w-0 flex-1 items-center gap-3 rounded-md py-3 pl-2 text-left hover:bg-muted/50"
       >
-        <p className="truncate font-medium">{itemLabel(item)}</p>
-        {details && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
-            {details}
-          </p>
-        )}
+        <ItemThumbnail src={item.imageUrl} />
+        <div className="min-w-0">
+          {/* Shop names can be long, so allow two lines before truncating */}
+          <p className="line-clamp-2 font-medium">{itemLabel(item)}</p>
+          {details && (
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+              {details}
+            </p>
+          )}
+        </div>
       </button>
       {href && (
         <Button

@@ -94,6 +94,8 @@ app.get("/share/:token", async (ctx) => {
       url: item.url,
       title: item.title,
       note: item.note,
+      imageUrl: item.imageUrl,
+      price: item.price,
       claimed: claim !== undefined,
       claimerName: claim?.claimerName,
     };

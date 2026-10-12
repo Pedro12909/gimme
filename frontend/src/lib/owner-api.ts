@@ -33,13 +33,24 @@ export type Item = {
   url: string;
   title?: string;
   note?: string;
+  imageUrl?: string;
+  price?: string;
   createdAt: string;
 };
 
 export type ListWithItems = List & { items: Item[] };
 
 export type ListInput = { title: string; description: string };
-export type ItemInput = { url: string; title: string; note: string };
+// Empty optional fields are removed by the API
+export type ItemInput = {
+  url: string;
+  title: string;
+  note: string;
+  imageUrl: string;
+  price: string;
+};
+
+export type LinkPreview = { title?: string; imageUrl?: string; price?: string };
 
 const listPath = (listId: string) => `/lists/${encodeURIComponent(listId)}`;
 const itemPath = (listId: string, itemId: string) =>
@@ -72,6 +83,9 @@ export const newShareLink = (listId: string) =>
   ownerRequest<{ shareToken: string }>(`${listPath(listId)}/share`, {
     method: "POST",
   });
+
+export const previewLink = (url: string) =>
+  ownerRequest<LinkPreview>("/preview", json("POST", { url }));
 
 export const shareUrl = (shareToken: string) =>
   `${window.location.origin}/s/${shareToken}`;
