@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gimme — colored tiles (guest)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,500;62..125,700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#141414;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.p{display:block;width:100%;height:100%}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #f4f4f2; color: #141414; font-family: 'Archivo', sans-serif">
+  <header style="display: flex; justify-content: space-between; align-items: center; padding: 16px 16px 0">
+    <span style="font-weight: 700; font-size: 16px; font-stretch: 112%">gimme</span>
+    <span style="font-size: 13px; color: #6a6a66">Pedro's list</span>
+  </header>
+
+  <section style="padding: 28px 16px 20px">
+    <h1 style="margin: 0; font-size: 44px; line-height: 0.95; font-weight: 700; font-stretch: 75%; text-transform: uppercase">Christmas 2026</h1>
+    <p style="margin: 10px 0 0; font-size: 14px; color: #6a6a66">25 December · in 62 days</p>
+    <p style="margin: 14px 0 0; font-size: 14px; line-height: 1.45">Claim something so nobody doubles up. Pedro won't see who.</p>
+  </section>
+
+  <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 2px">
+    <sc-for list="{{items}}" as="item" hint-placeholder-count="4">
+      <li>
+        <a href="#" aria-label="Open {{item.name}} in the shop" style="display: block; position: relative; aspect-ratio: 1 / 1; background: {{item.bg}}">
+          <sc-if value="{{item.isCase}}" hint-placeholder-val="{{false}}">
+            <svg class="p" viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="50" cy="70" rx="20" ry="2.6" fill="#000" opacity="0.08"></ellipse><rect x="31" y="36" width="38" height="32" rx="11" fill="#fbfbfa" stroke="#d6d6d2" stroke-width="0.6"></rect><line x1="31.5" y1="47" x2="68.5" y2="47" stroke="#d2d2ce" stroke-width="0.6"></line><circle cx="50" cy="57" r="1.2" fill="#c4c4bf"></circle></svg>
+          </sc-if>
+          <sc-if value="{{item.isReader}}" hint-placeholder-val="{{false}}">
+            <svg class="p" viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="50" cy="79" rx="18" ry="2.4" fill="#000" opacity="0.09"></ellipse><rect x="33" y="20" width="34" height="57" rx="3" fill="#1e1e1d"></rect><rect x="36.5" y="25" width="27" height="41" fill="#dcdcd6"></rect><rect x="40" y="31" width="20" height="1.4" fill="#a7a7a1"></rect><rect x="40" y="35" width="17" height="1.4" fill="#a7a7a1"></rect><rect x="40" y="39" width="19" height="1.4" fill="#a7a7a1"></rect><rect x="40" y="43" width="14" height="1.4" fill="#a7a7a1"></rect></svg>
+          </sc-if>
+          <sc-if value="{{item.isMoka}}" hint-placeholder-val="{{false}}">
+            <svg class="p" viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="50" cy="79" rx="17" ry="2.4" fill="#000" opacity="0.1"></ellipse><polygon points="36,78 64,78 60,56 40,56" fill="#a8a8a4"></polygon><polygon points="40,56 50,56 50,78 36,78" fill="#bcbcb8"></polygon><rect x="38" y="53" width="24" height="3.5" fill="#7c7c78"></rect><polygon points="39,53 61,53 57,32 43,32" fill="#9b9b97"></polygon><polygon points="43,32 50,32 50,53 39,53" fill="#b1b1ad"></polygon><polygon points="42,32 58,32 55,26 45,26" fill="#8a8a86"></polygon><rect x="48" y="22" width="4" height="4" fill="#1e1e1d"></rect><path d="M60,36 L71,38 L69,52 L59,50" fill="none" stroke="#1e1e1d" stroke-width="3.5"></path></svg>
+          </sc-if>
+          <sc-if value="{{item.isRecord}}" hint-placeholder-val="{{false}}">
+            <svg class="p" viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="52" cy="76" rx="26" ry="2.6" fill="#000" opacity="0.08"></ellipse><circle cx="60" cy="49" r="24" fill="#161616"></circle><circle cx="60" cy="49" r="19" fill="none" stroke="#2b2b2b" stroke-width="0.6"></circle><circle cx="60" cy="49" r="14" fill="none" stroke="#2b2b2b" stroke-width="0.6"></circle><circle cx="60" cy="49" r="7" fill="#d9a441"></circle><rect x="22" y="25" width="45" height="48" fill="#2f4b66"></rect><rect x="28" y="31" width="20" height="2" fill="#e9e4d8"></rect><rect x="28" y="35" width="13" height="2" fill="#e9e4d8"></rect><circle cx="52" cy="58" r="8" fill="none" stroke="#c9563d" stroke-width="2"></circle></svg>
+          </sc-if>
+          <sc-if value="{{item.taken}}" hint-placeholder-val="{{false}}">
+            <span style="position: absolute; inset: 0; background: rgba(244,244,242,0.72)"></span>
+            <span style="position: absolute; left: 10px; bottom: 8px; font-size: 13px; font-weight: 500">Taken</span>
+          </sc-if>
+        </a>
+        <div style="padding: 8px 10px 0 12px">
+          <div style="font-size: 14px; font-weight: 500; line-height: 1.3; color: {{item.ink}}">{{item.name}}</div>
+          <div style="margin-top: 2px; font-size: 12px; color: #6a6a66">{{item.shop}} · {{item.price}}</div>
+          <sc-if value="{{item.open}}" hint-placeholder-val="{{true}}">
+            <button type="button" style="margin-top: 2px; min-height: 40px; font-size: 14px; font-weight: 500; text-decoration: underline; text-underline-offset: 3px">Claim</button>
+          </sc-if>
+          <sc-if value="{{item.mine}}" hint-placeholder-val="{{false}}">
+            <div style="margin-top: 2px; min-height: 40px; display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="font-weight: 500; color: #b3261e">Yours</span><button type="button" style="color: #6a6a66; text-decoration: underline; text-underline-offset: 3px">Undo</button></div>
+          </sc-if>
+        </div>
+      </li>
+    </sc-for>
+  </ul>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const items = [
+      { kind: 'Case', name: 'AirPods Pro 3', shop: 'Apple', price: '€279,00', state: 'open', bg: '#dde4ec' },
+      { kind: 'Reader', name: 'Kindle Paperwhite, 16 GB', shop: 'Amazon', price: '€169,99', state: 'taken', bg: '#eadfce' },
+      { kind: 'Moka', name: 'Moka Express, 6 cups', shop: 'Bialetti', price: '€42,90', state: 'mine', bg: '#efdad1' },
+      { kind: 'Record', name: 'In Rainbows — Radiohead, LP', shop: 'Fnac', price: '€32,99', state: 'open', bg: '#e2e5d2' }
+    ];
+    return {
+      items: items.map((it) => ({
+        ...it,
+        isCase: it.kind === 'Case', isReader: it.kind === 'Reader', isMoka: it.kind === 'Moka', isRecord: it.kind === 'Record',
+        open: it.state === 'open', mine: it.state === 'mine', taken: it.state === 'taken',
+        ink: it.state === 'taken' ? '#6a6a66' : '#141414'
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

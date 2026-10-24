@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gimme — your lists</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,500;62..125,700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f4f4f2}
+a{color:#141414;text-decoration:none}
+a:hover .t{text-decoration:underline;text-underline-offset:4px}
+nav a:hover{text-decoration:underline;text-underline-offset:3px}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input::placeholder{color:#6a6a66}
+input:focus{outline:none;border-color:#141414}
+</style>
+</helmet>
+<div style="font-family: 'Archivo', sans-serif; color: #141414; background: #f4f4f2; min-height: 1000px; box-sizing: border-box">
+  <header style="display: flex; justify-content: space-between; align-items: center; padding: 18px 32px">
+    <span style="font-weight: 700; font-size: 17px; font-stretch: 112%; letter-spacing: -0.01em">gimme</span>
+    <nav style="display: flex; gap: 24px; font-size: 14px"><a href="#" aria-current="page" style="text-decoration: underline; text-underline-offset: 3px">Lists</a><a href="#">Account</a></nav>
+  </header>
+
+  <main style="max-width: 1216px; margin: 0 auto; padding: 32px 32px 64px">
+    <h1 style="margin: 0; font-size: 56px; line-height: 1; font-weight: 700; font-stretch: 75%; text-transform: uppercase">Your lists</h1>
+
+    <form style="margin-top: 32px; display: flex; max-width: 640px">
+      <label for="newlist" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Name a new list</label>
+      <input id="newlist" type="text" placeholder="Name a new list, e.g. Birthday" style="flex: 1; min-width: 0; font: inherit; font-size: 16px; color: #141414; background: #ffffff; border: 1px solid #d6d6d2; border-right: 0; border-radius: 0; padding: 14px 16px; min-height: 52px; box-sizing: border-box">
+      <button type="submit" style="min-height: 52px; padding: 0 20px; border: 1px solid #141414; font-size: 15px; font-weight: 500">Create</button>
+    </form>
+
+    <ul style="list-style: none; margin: 48px 0 0; padding: 0; display: flex; flex-direction: column; gap: 40px">
+      <sc-for list="{{lists}}" as="list" hint-placeholder-count="3">
+        <li>
+          <a href="#" style="display: flex; gap: 28px; align-items: flex-end; flex-wrap: wrap">
+            <span aria-hidden="true" style="display: grid; grid-template-columns: repeat(3, 132px); gap: 2px">
+              <span style="aspect-ratio: 1 / 1; background: {{list.t1}}"></span>
+              <span style="aspect-ratio: 1 / 1; background: {{list.t2}}"></span>
+              <span style="aspect-ratio: 1 / 1; background: {{list.t3}}"></span>
+            </span>
+            <span style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px">
+              <span class="t" style="font-size: 28px; font-weight: 700; font-stretch: 80%; text-transform: uppercase; line-height: 1">{{list.title}}</span>
+              <span style="font-size: 14px; color: #6a6a66">{{list.meta}}</span>
+            </span>
+          </a>
+        </li>
+      </sc-for>
+    </ul>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const empty = '#e7e7e3';
+    return {
+      lists: [
+        { title: 'Christmas 2026', meta: '25 December · 6 things · shared', t1: '#e2e1dc', t2: '#2f2f2d', t3: '#b4b3ad' },
+        { title: 'Birthday', meta: '14 March · 2 things · shared', t1: '#56606c', t2: '#cfc8b9', t3: empty },
+        { title: 'For the flat', meta: 'No date · 1 thing · private', t1: '#7b8868', t2: empty, t3: empty }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

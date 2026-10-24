@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gimme — claiming an item (guest)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,500;62..125,700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input::placeholder{color:#6a6a66}
+input:focus{outline:none;border-color:#141414}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #f4f4f2; color: #141414; font-family: 'Archivo', sans-serif">
+  <div aria-hidden="true">
+    <header style="display: flex; justify-content: space-between; align-items: center; padding: 16px 16px 0">
+      <span style="font-weight: 700; font-size: 16px; font-stretch: 112%">gimme</span>
+      <span style="font-size: 13px; color: #6a6a66">Pedro's list</span>
+    </header>
+    <div style="padding: 28px 16px 20px">
+      <div style="font-size: 44px; line-height: 0.95; font-weight: 700; font-stretch: 75%; text-transform: uppercase">Christmas 2026</div>
+      <div style="margin-top: 10px; font-size: 14px; color: #6a6a66">25 December · in 62 days</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px">
+      <div style="aspect-ratio: 1 / 1; background: #e2e1dc"></div>
+      <div style="aspect-ratio: 1 / 1; background: #2f2f2d"></div>
+    </div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(20,20,20,0.4)"></div>
+
+  <section role="dialog" aria-modal="true" aria-labelledby="ct" style="position: absolute; left: 0; right: 0; bottom: 0; background: #ffffff; border-top: 1px solid #141414; padding: 24px 16px 32px">
+    <div style="display: flex; gap: 14px; align-items: center">
+      <div aria-hidden="true" style="width: 64px; height: 64px; background: #e2e1dc; flex: none"></div>
+      <div>
+        <h2 id="ct" style="margin: 0; font-size: 18px; font-weight: 500">AirPods Pro 3</h2>
+        <p style="margin: 2px 0 0; font-size: 13px; color: #6a6a66">Apple · €279,00</p>
+      </div>
+    </div>
+
+    <form style="margin-top: 22px">
+      <label for="cn" style="display: block; font-size: 13px; color: #6a6a66">Your name, optional</label>
+      <input id="cn" type="text" value="Marta" style="margin-top: 6px; width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; color: #141414; background: #ffffff; border: 1px solid #d6d6d2; border-radius: 0; padding: 12px 14px; min-height: 50px">
+      <p style="margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: #6a6a66">Other guests will see it. Pedro won't. You can undo later from this phone.</p>
+      <button type="submit" style="margin-top: 18px; width: 100%; min-height: 52px; border: 1px solid #141414; font-size: 16px; font-weight: 500">I'll get this</button>
+      <button type="button" style="margin-top: 8px; width: 100%; min-height: 44px; font-size: 15px; text-decoration: underline; text-underline-offset: 3px">Cancel</button>
+    </form>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
