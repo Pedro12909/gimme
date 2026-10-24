@@ -12,6 +12,8 @@ await loadConfig();
 
 const queryClient = new QueryClient();
 
+const TOAST_OFFSET = { top: "calc(env(safe-area-inset-top) + 4.25rem)" };
+
 // Everything except the guest page is loaded on demand, so guests never download the auth code
 const page =
   (load: () => Promise<{ default: React.ComponentType }>) => async () => ({
@@ -29,6 +31,14 @@ const router = createBrowserRouter([
         path: "/lists/:listId",
         lazy: page(() => import("@/pages/ListDetail")),
       },
+      {
+        path: "/lists/:listId/preview",
+        lazy: page(() => import("@/pages/ListPreview")),
+      },
+      {
+        path: "/share-target",
+        lazy: page(() => import("@/pages/ShareTarget")),
+      },
     ],
   },
   { path: "/s/:token", Component: SharedList },
@@ -39,7 +49,12 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-      <Toaster position="top-center" />
+      {/* Below the sticky header (56px plus the notch), not on top of it */}
+      <Toaster
+        position="top-center"
+        offset={TOAST_OFFSET}
+        mobileOffset={TOAST_OFFSET}
+      />
     </QueryClientProvider>
   </StrictMode>,
 );

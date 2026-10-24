@@ -86,6 +86,22 @@ function stripShopName(title: string | undefined, url: URL) {
   return title;
 }
 
+// Marketplace titles pile specs onto the name: "Parker IM Fountain Pen | Matte Blue | Medium Nib
+// & Blue Ink Refill | Gift Boxed". Long titles keep only the part before the first separator,
+// as long as that part is a name on its own; the owner can still edit the result.
+const LONG_TITLE_LENGTH = 60;
+const MIN_SHORT_TITLE_LENGTH = 15;
+const SPEC_SEPARATORS = [" | ", ", ", " - ", " – ", " — "];
+
+function shortenTitle(title: string | undefined) {
+  if (!title || title.length <= LONG_TITLE_LENGTH) return title;
+
+  const cuts = SPEC_SEPARATORS.map((separator) => title.indexOf(separator))
+    .filter((index) => index >= MIN_SHORT_TITLE_LENGTH)
+    .sort((a, b) => a - b);
+  return cuts.length > 0 ? title.slice(0, cuts[0]).trim() : title;
+}
+
 function truncateTitle(title: string | undefined) {
   if (!title || title.length <= MAX_TITLE_LENGTH) return title;
   // Cut at a word boundary so the owner gets a readable starting point
@@ -198,11 +214,13 @@ function parseGeneric(html: string, base: URL): Preview {
 
   return {
     title: truncateTitle(
-      stripShopName(
-        cleanText(product?.name as string | undefined) ??
-          cleanText(meta.get("og:title")) ??
-          cleanText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]),
-        base,
+      shortenTitle(
+        stripShopName(
+          cleanText(product?.name as string | undefined) ??
+            cleanText(meta.get("og:title")) ??
+            cleanText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]),
+          base,
+        ),
       ),
     ),
     imageUrl:
@@ -231,7 +249,9 @@ function parseAmazon(html: string, base: URL): Preview {
 
   return {
     title: truncateTitle(
-      cleanText(match(/id="productTitle"[^>]*>([\s\S]*?)<\/span>/)),
+      shortenTitle(
+        cleanText(match(/id="productTitle"[^>]*>([\s\S]*?)<\/span>/)),
+      ),
     ),
     imageUrl: cleanImageUrl(
       match(/id="landingImage"[^>]*data-old-hires="([^"]+)"/) ??

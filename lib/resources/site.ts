@@ -12,6 +12,17 @@ import { SiteDomain } from "../certificate-stack";
 
 const FRONTEND_DIST = path.join(__dirname, "../../frontend/dist");
 
+// Files at fixed URLs (no content hash), so they're revalidated on every load, not cached for a year
+const SHELL_FILES = [
+  "index.html",
+  "favicon-48.png",
+  "apple-touch-icon.png",
+  "icon-192.png",
+  "icon-512.png",
+  "og-image.png",
+  "manifest.webmanifest",
+];
+
 export type Site = {
   siteBucket: s3.Bucket;
   distribution: cloudfront.Distribution;
@@ -108,7 +119,7 @@ export function deploySite(
       destinationBucket: siteBucket,
       sources: [
         s3deploy.Source.asset(FRONTEND_DIST, {
-          exclude: ["index.html", "favicon.svg", "config.json"],
+          exclude: [...SHELL_FILES, "config.json"],
         }),
       ],
       cacheControl: [
@@ -119,7 +130,7 @@ export function deploySite(
     },
   );
 
-  // The entry page and runtime config must always be fresh, so they're revalidated on every load
+  // The entry page, icons, manifest and runtime config must always be fresh, so they're revalidated on every load
   const shellDeployment = new s3deploy.BucketDeployment(
     stack,
     "DeploySiteShell",
@@ -127,14 +138,17 @@ export function deploySite(
       destinationBucket: siteBucket,
       sources: [
         s3deploy.Source.asset(FRONTEND_DIST, {
-          exclude: ["*", "!index.html", "!favicon.svg"],
+          exclude: ["*", ...SHELL_FILES.map((file) => `!${file}`)],
         }),
         s3deploy.Source.jsonData("config.json", config),
       ],
       cacheControl: [s3deploy.CacheControl.fromString("no-cache")],
       prune: false,
       distribution,
-      distributionPaths: ["/index.html", "/favicon.svg", "/config.json"],
+      distributionPaths: [
+        ...SHELL_FILES.map((file) => `/${file}`),
+        "/config.json",
+      ],
     },
   );
   // New bundles must be in place before the index.html that references them

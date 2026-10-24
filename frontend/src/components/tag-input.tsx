@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { XIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 // Limits match the owner Lambda's validation
 const MAX_TAGS = 10;
@@ -72,7 +73,10 @@ export function TagInput({
         id={id}
         value={draft}
         disabled={full}
-        placeholder={full ? `Up to ${MAX_TAGS} tags` : "Add a tag, e.g. vinyl"}
+        // A thing and a person: tags are also how a shared list says who each gift is for
+        placeholder={
+          full ? `Up to ${MAX_TAGS} tags` : "Add a tag, e.g. books or for Ana"
+        }
         maxLength={MAX_TAG_LENGTH}
         autoComplete="off"
         enterKeyHint="done"
@@ -108,12 +112,20 @@ export function TagInput({
         className="h-11 text-base"
       />
 
-      {focused && matches.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {matches.map((tag) => (
+      {/* Hidden rather than removed. Taking these out of the page as the field loses focus
+          makes the modal's focus trap pull focus to itself, away from the field just tapped. */}
+      {suggestions.length > 0 && (
+        <div
+          className={cn(
+            "flex flex-wrap gap-1.5",
+            !(focused && matches.length > 0) && "hidden",
+          )}
+        >
+          {suggestions.map((tag) => (
             <button
               key={tag}
               type="button"
+              hidden={!matches.includes(tag)}
               // Keep focus in the input so tapping several suggestions in a row works
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => add(tag)}

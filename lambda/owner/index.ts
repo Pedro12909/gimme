@@ -82,6 +82,34 @@ const checkText = (
   return undefined;
 };
 
+// An optional calendar day for the occasion, "2026-12-25". Only the day matters, so it's kept
+// as plain text with no time zone. On update, "" clears it.
+const checkEventDate = (value: unknown, allowEmpty: boolean) => {
+  if (value === undefined || (allowEmpty && value === "")) {
+    return undefined;
+  }
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return "eventDate must be a date like 2026-12-25";
+  }
+  const date = new Date(`${value}T00:00:00Z`);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== value
+  ) {
+    return "eventDate must be a real date";
+  }
+  return undefined;
+};
+
+// A private list is the owner's own tracker: its share link stops working until it's shared again
+const checkPrivate = (value: unknown) =>
+  value === undefined || typeof value === "boolean"
+    ? undefined
+    : "isPrivate must be true or false";
+
+// How many thumbnails the lists screen shows for each list
+const LIST_PREVIEW_IMAGES = 3;
+
 // Middleware
 app.use("*", async (ctx, next) => {
   const sub = ctx.env.requestContext.authorizer.jwt?.claims.sub;
@@ -101,10 +129,12 @@ app.post("/lists", async (ctx) => {
     return ctx.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { title, description } = body;
+  const { title, description, eventDate, isPrivate } = body;
   const error =
     checkText(title, "title", LIMITS.listTitle, true) ??
-    checkText(description, "description", LIMITS.description);
+    checkText(description, "description", LIMITS.description) ??
+    checkEventDate(eventDate, true) ??
+    checkPrivate(isPrivate);
   if (error) {
     return ctx.json({ error }, 400);
   }
@@ -119,6 +149,8 @@ app.post("/lists", async (ctx) => {
     ownerId,
     title,
     description,
+    eventDate: eventDate || undefined,
+    isPrivate: isPrivate === true || undefined,
     shareToken,
     createdAt: new Date().toISOString(),
   };
@@ -144,7 +176,35 @@ app.get("/lists", async (ctx) => {
       ExpressionAttributeValues: { ":ownerId": userid },
     }),
   );
-  return ctx.json(result.Items ?? []);
+
+  // Each list comes with its item count and first few photos, so the lists screen can tell
+  // lists apart at a glance. One small query per list: owners have a handful of lists, and
+  // only the fields needed for ordering and photos are read.
+  const lists = await Promise.all(
+    (result.Items ?? []).map(async (list) => {
+      const itemsResult = await documentClient.send(
+        new QueryCommand({
+          TableName: itemsTableName,
+          KeyConditionExpression: "listId = :listId",
+          ProjectionExpression: "itemId, #position, createdAt, imageUrl",
+          ExpressionAttributeNames: { "#position": "position" },
+          ExpressionAttributeValues: { ":listId": list.listId },
+        }),
+      );
+      const items = (itemsResult.Items ?? []).sort(compareItems);
+
+      return {
+        ...list,
+        itemCount: items.length,
+        previewImages: items
+          .map((item) => item.imageUrl)
+          .filter((url): url is string => typeof url === "string")
+          .slice(0, LIST_PREVIEW_IMAGES),
+      };
+    }),
+  );
+
+  return ctx.json(lists);
 });
 
 app.get("/lists/:listId", async (ctx) => {
@@ -210,10 +270,12 @@ app.patch("/lists/:listId", async (ctx) => {
     return ctx.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { title, description } = body;
+  const { title, description, eventDate, isPrivate } = body;
   const error =
     checkText(title, "title", LIMITS.listTitle, title !== undefined) ??
-    checkText(description, "description", LIMITS.description);
+    checkText(description, "description", LIMITS.description) ??
+    checkEventDate(eventDate, true) ??
+    checkPrivate(isPrivate);
   if (error) {
     return ctx.json({ error }, 400);
   }
@@ -233,6 +295,7 @@ app.patch("/lists/:listId", async (ctx) => {
   }
 
   const updates: string[] = [];
+  const removes: string[] = [];
   const values: Record<string, unknown> = { ":ownerId": userId };
 
   if (title !== undefined) {
@@ -243,17 +306,36 @@ app.patch("/lists/:listId", async (ctx) => {
     updates.push("description = :description");
     values[":description"] = description;
   }
+  if (eventDate === "") {
+    removes.push("eventDate");
+  } else if (eventDate !== undefined) {
+    updates.push("eventDate = :eventDate");
+    values[":eventDate"] = eventDate;
+  }
+  if (isPrivate === true) {
+    updates.push("isPrivate = :isPrivate");
+    values[":isPrivate"] = true;
+  } else if (isPrivate === false) {
+    removes.push("isPrivate");
+  }
 
-  if (updates.length === 0) {
+  if (updates.length === 0 && removes.length === 0) {
     return ctx.json({ error: "Nothing to update" }, 400);
   }
+
+  const updateExpression = [
+    updates.length > 0 ? `SET ${updates.join(", ")}` : "",
+    removes.length > 0 ? `REMOVE ${removes.join(", ")}` : "",
+  ]
+    .join(" ")
+    .trim();
 
   const result = await documentClient.send(
     new UpdateCommand({
       TableName: listsTableName,
       Key: { listId },
       ConditionExpression: "ownerId = :ownerId",
-      UpdateExpression: `SET ${updates.join(", ")}`,
+      UpdateExpression: updateExpression,
       ExpressionAttributeValues: values,
       ReturnValues: "ALL_NEW",
     }),

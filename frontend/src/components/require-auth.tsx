@@ -7,9 +7,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (isPending) return null;
   if (!user) {
-    // Come back here after signing in
+    // Come back here after signing in, query included (a link shared into the app lives there)
     return (
-      <Navigate to="/sign-in" replace state={{ from: location.pathname }} />
+      <Navigate
+        to="/sign-in"
+        replace
+        state={{ from: location.pathname + location.search }}
+      />
     );
   }
 

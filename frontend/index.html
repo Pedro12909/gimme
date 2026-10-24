@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Installable app; on Android it also appears in the share sheet of shop apps -->
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
@@ -12,6 +15,26 @@
       name="description"
       content="Share a wishlist. Friends claim gifts, you keep the surprise."
     />
+    <!-- Link previews in WhatsApp, Messages, Slack... Crawlers don't run JavaScript, so these are
+         the same for every page, and the image URL must be absolute. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="gimme" />
+    <meta
+      property="og:title"
+      content="gimme · Wishlists that keep the surprise"
+    />
+    <meta
+      property="og:description"
+      content="Share one link. Friends claim gifts. You never see who got what."
+    />
+    <meta property="og:image" content="https://gimme.rtemis.dev/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="gimme: Wishlists that keep the surprise."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
     <title>gimme</title>
     <script>
       // Apply the theme before first paint: a stored choice wins, otherwise follow the device

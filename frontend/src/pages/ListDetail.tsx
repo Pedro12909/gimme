@@ -1,18 +1,18 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeftIcon,
+  LockIcon,
   MoreHorizontalIcon,
   PlusIcon,
   ShareIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import {
-  ListControls,
-  MIN_ITEMS_FOR_CONTROLS,
-} from "@/components/list-controls";
+import { GroupedItems } from "@/components/grouped-items";
+import { ItemCard, ItemGrid } from "@/components/item-card";
+import { ListControls } from "@/components/list-controls";
 import { ItemFormSheet, ListFormSheet } from "@/components/owner-forms";
 import { OwnerItemList } from "@/components/owner-item-list";
 import { PageShell } from "@/components/page-shell";
@@ -26,16 +26,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { describeEventDate } from "@/lib/event-date";
+import { rememberOwnShareTokens } from "@/lib/guest-storage";
 import { ApiError } from "@/lib/http";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { sortByPosition } from "@/lib/item-order";
 import {
   applyView,
+  budgetOptions,
   collectTags,
-  DEFAULT_VIEW,
+  groupItems,
   isFiltered,
   itemLabel,
-  type ListView,
+  usualCurrency,
 } from "@/lib/item-view";
+import { useListView } from "@/lib/use-list-view";
+import { cn } from "@/lib/utils";
 import {
   addItem,
   deleteItem,
@@ -84,17 +90,22 @@ const toInput = (item: Item): ItemInput => ({
   size: item.size ?? "",
   alternatives: item.alternatives ?? [],
   tags: item.tags ?? [],
+  starred: item.starred ?? false,
+  got: item.got ?? false,
 });
 
 export default function ListDetail() {
   const { listId = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
 
-  const [adding, setAdding] = useState(false);
+  // A link shared into gimme from another app arrives here, ready to add
+  const sharedUrl = (location.state as { addUrl?: string } | null)?.addUrl;
+  const [adding, setAdding] = useState(sharedUrl !== undefined);
   const [editing, setEditing] = useState<Item>();
   const [dialog, setDialog] = useState<Dialog>();
-  const [view, setView] = useState<ListView>(DEFAULT_VIEW);
+  const [view, setView] = useListView(listId);
 
   const queryKey = ["list", listId];
   const {
@@ -108,6 +119,12 @@ export default function ListDetail() {
     retry: (count, err) =>
       !(err instanceof ApiError && err.status === 404) && count < 2,
   });
+  useDocumentTitle(list?.title);
+
+  // Covers links made since the lists screen was last opened
+  useEffect(() => {
+    if (list) rememberOwnShareTokens([list.shareToken]);
+  }, [list]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey });
@@ -196,14 +213,20 @@ export default function ListDetail() {
     mutationFn: () => newShareLink(listId),
     onSuccess: () => {
       refresh();
-      toast("New link created. The old one no longer works.");
+      toast("Share link replaced. The old one no longer works.");
     },
-    onError: () => toast.error("Couldn't create a new link. Try again."),
+    onError: () => toast.error("Couldn't replace the link. Try again."),
   });
 
   const items = useMemo(() => list?.items ?? [], [list]);
   const tags = useMemo(() => collectTags(items), [items]);
+  const budgets = useMemo(() => budgetOptions(items), [items]);
+  const currency = useMemo(() => usualCurrency(items), [items]);
   const shown = useMemo(() => applyView(items, view), [items, view]);
+  const groups = useMemo(
+    () => groupItems(shown, view.groupBy),
+    [shown, view.groupBy],
+  );
 
   const backLink = (
     <Button asChild variant="ghost" size="lg" className="-ml-3">
@@ -252,12 +275,43 @@ export default function ListDetail() {
   }
 
   const empty = items.length === 0;
-  const showControls = items.length >= MIN_ITEMS_FOR_CONTROLS;
-  // Dragging only makes sense in the owner's own order, with nothing hidden
-  const sortable = view.sort === "ranking" && !isFiltered(view);
+  const grid = view.layout === "grid";
+  // Dragging only makes sense in a plain list in the owner's own order, with nothing hidden
+  // or grouped, and something to move past
+  const sortable =
+    !grid &&
+    view.sort === "ranking" &&
+    view.groupBy === "none" &&
+    !isFiltered(view) &&
+    items.length > 1;
+  const isPrivate = list.isPrivate === true;
+
+  const renderItems = (group: Item[]) =>
+    grid ? (
+      <ItemGrid>
+        {group.map((item) => (
+          <ItemCard
+            key={item.itemId}
+            item={item}
+            onOpen={() => setEditing(item)}
+            dimmed={item.got}
+            status={item.got ? "Got it" : undefined}
+          />
+        ))}
+      </ItemGrid>
+    ) : (
+      <OwnerItemList
+        items={group}
+        sortable={sortable}
+        grouped={view.groupBy !== "none"}
+        onEdit={setEditing}
+        onMove={(itemId, position) => move.mutate({ itemId, position })}
+      />
+    );
 
   return (
     <PageShell
+      wide={grid}
       header={
         <>
           {backLink}
@@ -277,9 +331,9 @@ export default function ListDetail() {
                 <DropdownMenuItem onSelect={() => setDialog("editList")}>
                   Edit list
                 </DropdownMenuItem>
-                {!empty && (
+                {!empty && !isPrivate && (
                   <DropdownMenuItem onSelect={() => setDialog("newLink")}>
-                    Create new share link
+                    Replace share link
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
@@ -298,10 +352,29 @@ export default function ListDetail() {
       <h1 className="text-2xl font-semibold tracking-tight text-balance">
         {list.title}
       </h1>
+      {list.eventDate && (
+        <p className="mt-1 text-sm font-medium">
+          {describeEventDate(list.eventDate)}
+        </p>
+      )}
       {list.description && (
         <p className="mt-2 text-muted-foreground text-pretty">
           {list.description}
         </p>
+      )}
+      {isPrivate && (
+        // Also the way to change it: there's no Share button to find while the list is private
+        <button
+          type="button"
+          onClick={() => setDialog("editList")}
+          className="mt-2 flex items-center gap-1.5 text-left text-sm text-muted-foreground hover:text-foreground"
+        >
+          <LockIcon className="size-3.5 shrink-0" />
+          <span>
+            Private: only you can see this list.{" "}
+            <span className="underline underline-offset-4">Change</span>
+          </span>
+        </button>
       )}
 
       {empty ? (
@@ -320,55 +393,75 @@ export default function ListDetail() {
         </div>
       ) : (
         <>
-          {/* Sharing only appears once there's something worth sharing */}
-          <div className="mt-6 grid grid-cols-2 gap-3">
+          {/* Sharing only appears once there's something worth sharing, and never on a private list */}
+          <div
+            className={cn(
+              "mt-6 grid gap-3 sm:max-w-md",
+              !isPrivate && "grid-cols-2",
+            )}
+          >
             <Button size="lg" className="h-11" onClick={() => setAdding(true)}>
               <PlusIcon />
               Add item
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-11"
-              onClick={() => share(list)}
-            >
-              <ShareIcon />
-              Share
-            </Button>
+            {!isPrivate && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-11"
+                onClick={() => share(list)}
+              >
+                <ShareIcon />
+                Share
+              </Button>
+            )}
           </div>
 
-          {showControls && (
-            <div className="mt-8">
-              <ListControls
-                view={view}
-                onChange={setView}
-                tags={tags}
-                rankingLabel="My order"
-                shownCount={shown.length}
-                totalCount={items.length}
-              />
-            </div>
-          )}
+          {/* Who can see the list right now, and a look at it through their eyes */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-muted-foreground sm:max-w-md">
+            {!isPrivate && <span>Anyone with the link can see it</span>}
+            <Link
+              to={`/lists/${listId}/preview`}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Preview as guest
+            </Link>
+          </div>
+
+          {/* Always there for owners: the list is also their own tracker */}
+          <div className="mt-8">
+            <ListControls
+              view={view}
+              onChange={setView}
+              tags={tags}
+              rankingLabel="My order"
+              availableLabel={
+                items.some((item) => item.got) ? "Not got yet" : undefined
+              }
+              showStarred={items.some((item) => item.starred)}
+              budgets={budgets}
+              shownCount={shown.length}
+              totalCount={items.length}
+            />
+          </div>
 
           <div className="mt-4">
-            {shown.length > 0 ? (
-              <OwnerItemList
-                items={shown}
-                sortable={sortable}
-                onEdit={setEditing}
-                onMove={(itemId, position) => move.mutate({ itemId, position })}
-              />
-            ) : (
+            {shown.length === 0 ? (
               <p className="py-16 text-center text-sm text-muted-foreground">
                 No items match.
               </p>
+            ) : view.groupBy === "none" ? (
+              renderItems(shown)
+            ) : (
+              <GroupedItems groups={groups} render={renderItems} />
             )}
           </div>
 
           {/* Explains why the drag handles disappeared */}
           {!sortable && shown.length > 1 && (
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              To reorder, sort by My order and clear filters.
+              To reorder, use the list layout in My order, with no grouping or
+              filters.
             </p>
           )}
         </>
@@ -376,10 +469,20 @@ export default function ListDetail() {
 
       <ItemFormSheet
         open={adding}
-        onOpenChange={setAdding}
+        onOpenChange={(open) => {
+          setAdding(open);
+          // Done with the shared link: a refresh or a later "Add item" starts empty
+          if (!open && sharedUrl) {
+            navigate(location.pathname, { replace: true, state: null });
+          }
+        }}
+        prefillUrl={sharedUrl}
+        // A shared link is already filled in, so don't select it for typing over
+        autoFocus={sharedUrl === undefined}
         heading="Add item"
         submitLabel="Add"
         existingTags={tags}
+        currency={currency}
         submitting={add.isPending}
         onSave={(input) => add.mutate(input)}
       />
@@ -389,8 +492,10 @@ export default function ListDetail() {
         onOpenChange={(open) => !open && setEditing(undefined)}
         heading="Edit item"
         submitLabel="Save"
+        autoFocus={false}
         initial={editing && toInput(editing)}
         existingTags={tags}
+        currency={currency}
         submitting={update.isPending}
         onSave={(input) =>
           editing && update.mutate({ itemId: editing.itemId, input })
@@ -413,7 +518,13 @@ export default function ListDetail() {
         onOpenChange={(open) => !open && setDialog(undefined)}
         heading="Edit list"
         submitLabel="Save"
-        initial={{ title: list.title, description: list.description ?? "" }}
+        autoFocus={false}
+        initial={{
+          title: list.title,
+          description: list.description ?? "",
+          eventDate: list.eventDate ?? "",
+          isPrivate: list.isPrivate ?? false,
+        }}
         submitting={editList.isPending}
         onSave={(input) => editList.mutate(input)}
       />
@@ -442,9 +553,9 @@ export default function ListDetail() {
       <ConfirmDialog
         open={dialog === "newLink"}
         onOpenChange={(open) => !open && setDialog(undefined)}
-        title="Create a new share link?"
-        description="The current link will stop working. Use this if the list was shared with someone it shouldn't have been. You'll need to send the new link again."
-        confirmLabel="Create new link"
+        title="Replace the share link?"
+        description="The current link will stop working and a new one takes its place. Use this if the list was shared with someone it shouldn't have been. You'll need to send the new link again."
+        confirmLabel="Replace link"
         onConfirm={() => rotateLink.mutate()}
       />
     </PageShell>

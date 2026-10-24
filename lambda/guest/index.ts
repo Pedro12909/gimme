@@ -36,6 +36,7 @@ const claimsTableName = process.env["CLAIMS_TABLE_NAME"];
 const MAX_CLAIMER_NAME_LENGTH = 50;
 
 // The guest never sends a listId: it is always derived from the share token.
+// A private list answers like a missing one, so its link reveals nothing.
 const findListByShareToken = async (shareToken: string) => {
   const result = await documentClient.send(
     new QueryCommand({
@@ -46,7 +47,8 @@ const findListByShareToken = async (shareToken: string) => {
     }),
   );
 
-  return result.Items?.[0];
+  const list = result.Items?.[0];
+  return list?.isPrivate ? undefined : list;
 };
 
 // Only a hash of the claim secret is stored, so a leaked Claims row can't be used to unclaim.
@@ -101,6 +103,9 @@ app.get("/share/:token", async (ctx) => {
       alternatives: item.alternatives,
       tags: item.tags,
       createdAt: item.createdAt,
+      starred: item.starred === true,
+      // The owner already has it, so it can't be claimed
+      got: item.got === true,
       claimed: claim !== undefined,
       claimerName: claim?.claimerName,
     };
@@ -109,6 +114,7 @@ app.get("/share/:token", async (ctx) => {
   return ctx.json({
     title: list.title,
     description: list.description,
+    eventDate: list.eventDate,
     items,
   });
 });
@@ -130,6 +136,9 @@ app.post("/share/:token/items/:itemId/claim", async (ctx) => {
 
   if (!itemResult.Item) {
     return ctx.json({ error: "Not found" }, 404);
+  }
+  if (itemResult.Item.got === true) {
+    return ctx.json({ error: "Item already received" }, 409);
   }
 
   // The body is optional, a guest can claim without giving a name

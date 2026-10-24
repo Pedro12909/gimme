@@ -1,9 +1,25 @@
+import { StarIcon } from "lucide-react";
 import { ItemThumbnail } from "@/components/item-thumbnail";
 import { itemDetails, itemLabel, type ViewableItem } from "@/lib/item-view";
 import { safeHref, siteName } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE_TAGS = 3;
+
+// Starred items are what the owner really wants; owners and guests both see it
+export function ItemName({ item }: { item: ViewableItem }) {
+  return (
+    <>
+      {item.starred && (
+        <StarIcon
+          aria-label="Starred"
+          className="mr-1 inline size-3.5 fill-current align-[-0.1em]"
+        />
+      )}
+      {itemLabel(item)}
+    </>
+  );
+}
 
 // Thumbnail, name, details, tags and other shops: the part of a row owners and guests share
 export function ItemSummary({
@@ -42,10 +58,12 @@ export function ItemSummary({
             rel="noopener noreferrer"
             className="line-clamp-2 font-medium underline-offset-4 hover:underline"
           >
-            {itemLabel(item)}
+            <ItemName item={item} />
           </a>
         ) : (
-          <p className="line-clamp-2 font-medium">{itemLabel(item)}</p>
+          <p className="line-clamp-2 font-medium">
+            <ItemName item={item} />
+          </p>
         )}
 
         {details && (

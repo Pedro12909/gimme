@@ -23,6 +23,8 @@ export function ResponsiveModal({
   title,
   description,
   footer,
+  autoFocus = true,
+  wrapTitle = false,
   children,
 }: {
   open: boolean;
@@ -30,24 +32,43 @@ export function ResponsiveModal({
   title: React.ReactNode;
   description?: React.ReactNode;
   footer: React.ReactNode;
+  // Off when opening to look at something: focusing a field opens the phone keyboard
+  // and selects its text, one keystroke away from replacing it
+  autoFocus?: boolean;
+  // Long titles (product names) get up to three lines instead of being cut off
+  wrapTitle?: boolean;
   children: React.ReactNode;
 }) {
   const desktop = useMediaQuery("(min-width: 640px)");
 
+  const handleOpenAutoFocus = (event: Event) => {
+    if (autoFocus) return;
+    event.preventDefault();
+    // Focus the modal itself, so keyboard users still start inside it
+    (event.currentTarget as HTMLElement | null)?.focus();
+  };
+
   // Radix warns without a description; hide it visually when there's nothing to say
   const descriptionClass = description ? undefined : "sr-only";
+  const titleClass = wrapTitle ? "line-clamp-3 pr-8" : "truncate pr-8";
 
   if (desktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-md">
+        {/* Only the body scrolls, so the footer's buttons never move */}
+        <DialogContent
+          className="flex max-h-[90svh] flex-col sm:max-w-md"
+          onOpenAutoFocus={handleOpenAutoFocus}
+        >
           <DialogHeader>
-            <DialogTitle className="truncate pr-8">{title}</DialogTitle>
+            <DialogTitle className={titleClass}>{title}</DialogTitle>
             <DialogDescription className={descriptionClass}>
               {description ?? title}
             </DialogDescription>
           </DialogHeader>
-          {children}
+          <div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4 py-1">
+            {children}
+          </div>
           <DialogFooter>{footer}</DialogFooter>
         </DialogContent>
       </Dialog>
@@ -58,17 +79,22 @@ export function ResponsiveModal({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[90svh] overflow-y-auto rounded-t-xl pb-[env(safe-area-inset-bottom)]"
+        className="max-h-[90svh] rounded-t-xl pb-[env(safe-area-inset-bottom)]"
+        onOpenAutoFocus={handleOpenAutoFocus}
       >
         <SheetHeader>
-          <SheetTitle className="truncate pr-8">{title}</SheetTitle>
+          <SheetTitle className={titleClass}>{title}</SheetTitle>
           <SheetDescription className={descriptionClass}>
             {description ?? title}
           </SheetDescription>
         </SheetHeader>
-        <div className="px-4">{children}</div>
-        {/* Same order as the dialog footer: primary action ends up on top */}
-        <SheetFooter className="flex-col-reverse">{footer}</SheetFooter>
+        {/* Only the body scrolls: the footer stays pinned to the bottom of the sheet, so a
+            preview loading or a section opening never slides another button under a finger */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-1">
+          {children}
+        </div>
+        {/* One row: a secondary action (e.g. Delete) sits apart from the primary one, on its left */}
+        <SheetFooter className="flex-row border-t">{footer}</SheetFooter>
       </SheetContent>
     </Sheet>
   );

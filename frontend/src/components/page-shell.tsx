@@ -7,23 +7,34 @@ export function PageShell({
   header,
   children,
   mainClassName,
+  wide = false,
 }: {
   header: React.ReactNode;
   children: React.ReactNode;
   mainClassName?: string;
+  // Room for a grid of cards on wide screens; phones look the same either way
+  wide?: boolean;
 }) {
+  const width = wide ? "max-w-5xl" : "max-w-2xl";
+
   return (
     <div className="flex min-h-svh flex-col">
       {/* Stays reachable while scrolling long lists; the blur keeps it from feeling heavy */}
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 pt-[env(safe-area-inset-top)] backdrop-blur-md">
-        <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-2 px-4">
+        <div
+          className={cn(
+            "mx-auto flex h-14 w-full items-center justify-between gap-2 px-4",
+            width,
+          )}
+        >
           {header}
         </div>
       </header>
 
       <main
         className={cn(
-          "mx-auto w-full max-w-2xl flex-1 px-4 pt-8 pb-16",
+          "mx-auto w-full flex-1 px-4 pt-8 pb-16",
+          width,
           mainClassName,
         )}
       >

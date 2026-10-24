@@ -23,8 +23,19 @@ export type List = {
   listId: string;
   title: string;
   description?: string;
+  // "2026-12-25"
+  eventDate?: string;
+  // The owner's own tracker: the share link doesn't work
+  isPrivate?: boolean;
   shareToken: string;
   createdAt: string;
+};
+
+// From GET /lists only: enough to tell lists apart on the lists screen.
+// Optional so an older API (mid-deploy) doesn't break the page.
+export type ListSummary = List & {
+  itemCount?: number;
+  previewImages?: string[];
 };
 
 export type Item = {
@@ -40,13 +51,21 @@ export type Item = {
   size?: string;
   alternatives?: string[];
   tags?: string[];
+  starred?: boolean;
+  got?: boolean;
   position?: string;
   createdAt: string;
 };
 
 export type ListWithItems = List & { items: Item[] };
 
-export type ListInput = { title: string; description: string };
+// An empty eventDate clears it
+export type ListInput = {
+  title: string;
+  description: string;
+  eventDate: string;
+  isPrivate: boolean;
+};
 // Empty optional fields are removed by the API
 export type ItemInput = {
   url: string;
@@ -58,6 +77,8 @@ export type ItemInput = {
   size: string;
   alternatives: string[];
   tags: string[];
+  starred: boolean;
+  got: boolean;
 };
 
 export type LinkPreview = {
@@ -71,7 +92,7 @@ const listPath = (listId: string) => `/lists/${encodeURIComponent(listId)}`;
 const itemPath = (listId: string, itemId: string) =>
   `${listPath(listId)}/items/${encodeURIComponent(itemId)}`;
 
-export const getLists = () => ownerRequest<List[]>("/lists");
+export const getLists = () => ownerRequest<ListSummary[]>("/lists");
 
 export const getList = (listId: string) =>
   ownerRequest<ListWithItems>(listPath(listId));

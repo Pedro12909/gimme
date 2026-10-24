@@ -14,6 +14,7 @@ export function FormSheet({
   canSubmit = true,
   onSubmit,
   secondaryAction,
+  autoFocus,
   children,
 }: {
   open: boolean;
@@ -25,6 +26,7 @@ export function FormSheet({
   canSubmit?: boolean;
   onSubmit: () => void;
   secondaryAction?: React.ReactNode;
+  autoFocus?: boolean;
   children: React.ReactNode;
 }) {
   const formId = useId();
@@ -35,6 +37,7 @@ export function FormSheet({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
+      autoFocus={autoFocus}
       footer={
         <>
           {secondaryAction}
@@ -42,7 +45,7 @@ export function FormSheet({
             type="submit"
             form={formId}
             size="lg"
-            className="h-11 sm:h-9"
+            className="h-11 flex-1 sm:h-9 sm:flex-none"
             disabled={submitting || !canSubmit}
           >
             {submitLabel}
@@ -53,6 +56,8 @@ export function FormSheet({
       <form
         id={formId}
         className="grid gap-5"
+        // Each form explains its own mistakes, in its own words, next to the field
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit();

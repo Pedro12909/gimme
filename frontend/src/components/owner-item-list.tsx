@@ -66,7 +66,11 @@ function OwnerItemRow({
           handle ? "pl-1" : "-ml-2 pl-2",
         )}
       >
-        <ItemSummary item={item} />
+        <ItemSummary item={item} dimmed={item.got}>
+          {item.got && (
+            <p className="mt-0.5 text-sm text-muted-foreground">Got it</p>
+          )}
+        </ItemSummary>
       </button>
       {href && (
         <Button
@@ -123,12 +127,15 @@ function SortableItemRow({ item, onEdit }: { item: Item; onEdit: () => void }) {
 export function OwnerItemList({
   items,
   sortable,
+  grouped = false,
   onEdit,
   onMove,
 }: {
   items: Item[];
   // Only in the owner's own order with no filters: dragging in a filtered or re-sorted view is ambiguous
   sortable: boolean;
+  // Under a group label, whose rule already separates this list from its neighbours
+  grouped?: boolean;
   onEdit: (item: Item) => void;
   onMove: (itemId: string, position: string) => void;
 }) {
@@ -141,7 +148,7 @@ export function OwnerItemList({
 
   if (!sortable) {
     return (
-      <ul className="divide-y border-y">
+      <ul className={cn("divide-y", !grouped && "border-y")}>
         {items.map((item) => (
           <OwnerItemRow
             key={item.itemId}

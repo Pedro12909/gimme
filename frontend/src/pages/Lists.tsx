@@ -1,21 +1,66 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRightIcon, PlusIcon } from "lucide-react";
+import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AccountMenu } from "@/components/account-menu";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageShell } from "@/components/page-shell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ListFormSheet } from "@/components/owner-forms";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Wordmark } from "@/components/wordmark";
-import { createList, getLists } from "@/lib/owner-api";
+import { ItemThumbnail } from "@/components/item-thumbnail";
+import { describeEventDate, isUpcoming } from "@/lib/event-date";
+import { rememberOwnShareTokens } from "@/lib/guest-storage";
+import {
+  createList,
+  deleteList,
+  getLists,
+  updateList,
+  type ListInput,
+  type ListSummary,
+} from "@/lib/owner-api";
+
+// Lists with an occasion coming up go first, soonest first; the rest newest first
+function compareLists(a: ListSummary, b: ListSummary) {
+  const upcomingA = isUpcoming(a.eventDate);
+  const upcomingB = isUpcoming(b.eventDate);
+  if (upcomingA && upcomingB) return a.eventDate!.localeCompare(b.eventDate!);
+  if (upcomingA !== upcomingB) return upcomingA ? -1 : 1;
+  return b.createdAt.localeCompare(a.createdAt);
+}
+
+function listDetails(list: ListSummary) {
+  const count =
+    list.itemCount === undefined
+      ? undefined
+      : list.itemCount === 0
+        ? "No items yet"
+        : `${list.itemCount} ${list.itemCount === 1 ? "item" : "items"}`;
+  // Past dates aren't worth the space
+  const date =
+    list.eventDate && isUpcoming(list.eventDate)
+      ? describeEventDate(list.eventDate)
+      : undefined;
+  return [list.isPrivate && "Private", count, date].filter(Boolean).join(" · ");
+}
 
 export default function Lists() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  // Tidying up happens here too: a list can be renamed or deleted without opening it
+  const [editing, setEditing] = useState<ListSummary>();
+  const [deleting, setDeleting] = useState<ListSummary>();
 
   const {
     data: lists,
@@ -38,9 +83,37 @@ export default function Lists() {
     onError: () => toast.error("Couldn't create the list. Try again."),
   });
 
-  const sorted = [...(lists ?? [])].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
+  const edit = useMutation({
+    mutationFn: ({ listId, input }: { listId: string; input: ListInput }) =>
+      updateList(listId, input),
+    onSuccess: (_, { listId }) => {
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+      queryClient.invalidateQueries({ queryKey: ["list", listId] });
+      setEditing(undefined);
+    },
+    onError: () => toast.error("Couldn't save. Try again."),
+  });
+
+  const remove = useMutation({
+    mutationFn: deleteList,
+    onSuccess: (_, listId) => {
+      queryClient.removeQueries({ queryKey: ["list", listId] });
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+      toast("List deleted");
+    },
+    onError: () => toast.error("Couldn't delete the list. Try again."),
+  });
+
+  // Lets the guest page recognise this owner's own links on this device
+  useEffect(() => {
+    if (lists)
+      rememberOwnShareTokens(
+        lists.map((list) => list.shareToken),
+        true,
+      );
+  }, [lists]);
+
+  const sorted = [...(lists ?? [])].sort(compareLists);
 
   return (
     <PageShell
@@ -103,21 +176,57 @@ export default function Lists() {
 
           <ul className="mt-6 divide-y border-y">
             {sorted.map((list) => (
-              <li key={list.listId}>
+              <li key={list.listId} className="flex items-center gap-1">
                 <Link
                   to={`/lists/${list.listId}`}
-                  className="-mx-2 flex items-center gap-4 rounded-md px-2 py-4 hover:bg-muted/50"
+                  className="-ml-2 flex min-w-0 flex-1 items-center gap-4 rounded-md px-2 py-4 hover:bg-muted/50"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{list.title}</p>
-                    {list.description && (
-                      <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                        {list.description}
-                      </p>
-                    )}
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                      {listDetails(list)}
+                    </p>
                   </div>
-                  <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                  {/* A few photos make lists recognisable without reading */}
+                  {list.previewImages && list.previewImages.length > 0 && (
+                    <div
+                      className="flex shrink-0 -space-x-2"
+                      aria-hidden="true"
+                    >
+                      {list.previewImages.map((src, index) => (
+                        <ItemThumbnail
+                          key={index}
+                          src={src}
+                          className="size-9 ring-2 ring-background"
+                        />
+                      ))}
+                    </div>
+                  )}
                 </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-lg"
+                      className="-mr-2 shrink-0"
+                      aria-label={`Options for ${list.title}`}
+                    >
+                      <MoreHorizontalIcon className="size-5 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-40">
+                    <DropdownMenuItem onSelect={() => setEditing(list)}>
+                      Edit list
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setDeleting(list)}
+                    >
+                      Delete list
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </li>
             ))}
           </ul>
@@ -131,6 +240,35 @@ export default function Lists() {
         submitLabel="Create list"
         submitting={create.isPending}
         onSave={(input) => create.mutate(input)}
+      />
+
+      <ListFormSheet
+        open={editing !== undefined}
+        onOpenChange={(open) => !open && setEditing(undefined)}
+        heading="Edit list"
+        submitLabel="Save"
+        autoFocus={false}
+        initial={
+          editing && {
+            title: editing.title,
+            description: editing.description ?? "",
+            eventDate: editing.eventDate ?? "",
+            isPrivate: editing.isPrivate ?? false,
+          }
+        }
+        submitting={edit.isPending}
+        onSave={(input) =>
+          editing && edit.mutate({ listId: editing.listId, input })
+        }
+      />
+
+      <ConfirmDialog
+        open={deleting !== undefined}
+        onOpenChange={(open) => !open && setDeleting(undefined)}
+        title={`Delete ${deleting?.title ?? "list"}?`}
+        description="The list and its items will be deleted, and the shared link will stop working. This can't be undone."
+        confirmLabel="Delete list"
+        onConfirm={() => deleting && remove.mutate(deleting.listId)}
       />
     </PageShell>
   );

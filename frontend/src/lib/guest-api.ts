@@ -16,6 +16,9 @@ export type SharedItem = {
   alternatives?: string[];
   tags?: string[];
   createdAt: string;
+  starred?: boolean;
+  // The owner already has it, so it can't be claimed
+  got?: boolean;
   claimed: boolean;
   claimerName?: string;
 };
@@ -23,6 +26,7 @@ export type SharedItem = {
 export type SharedList = {
   title: string;
   description?: string;
+  eventDate?: string;
   items: SharedItem[];
 };
 
