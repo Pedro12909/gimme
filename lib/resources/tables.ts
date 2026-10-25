@@ -5,6 +5,7 @@ export type Tables = {
   listsTable: aws_dynamodb.TableV2;
   itemsTable: aws_dynamodb.TableV2;
   claimsTable: aws_dynamodb.TableV2;
+  ownersTable: aws_dynamodb.TableV2;
 };
 
 // One table per entity. Access is granted per Lambda where each function is defined.
@@ -47,5 +48,12 @@ export function createTables(stack: cdk.Stack): Tables {
     removalPolicy: cdk.RemovalPolicy.DESTROY,
   });
 
-  return { listsTable, itemsTable, claimsTable };
+  // Per-account details shown to guests, e.g. the name in "Pedro's list"
+  const ownersTable = new aws_dynamodb.TableV2(stack, "Owners", {
+    partitionKey: { name: "ownerId", type: aws_dynamodb.AttributeType.STRING },
+    billing: aws_dynamodb.Billing.onDemand(),
+    removalPolicy: cdk.RemovalPolicy.DESTROY,
+  });
+
+  return { listsTable, itemsTable, claimsTable, ownersTable };
 }

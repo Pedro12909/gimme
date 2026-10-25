@@ -4,15 +4,12 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import { loadConfig } from "@/config";
-import { Toaster } from "@/components/ui/sonner";
 import SharedList from "@/pages/SharedList";
 import NotFound from "@/pages/NotFound";
 
 await loadConfig();
 
 const queryClient = new QueryClient();
-
-const TOAST_OFFSET = { top: "calc(env(safe-area-inset-top) + 4.25rem)" };
 
 // Everything except the guest page is loaded on demand, so guests never download the auth code
 const page =
@@ -32,9 +29,14 @@ const router = createBrowserRouter([
         lazy: page(() => import("@/pages/ListDetail")),
       },
       {
+        path: "/lists/:listId/settings",
+        lazy: page(() => import("@/pages/ListSettings")),
+      },
+      {
         path: "/lists/:listId/preview",
         lazy: page(() => import("@/pages/ListPreview")),
       },
+      { path: "/account", lazy: page(() => import("@/pages/Account")) },
       {
         path: "/share-target",
         lazy: page(() => import("@/pages/ShareTarget")),
@@ -49,12 +51,6 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-      {/* Below the sticky header (56px plus the notch), not on top of it */}
-      <Toaster
-        position="top-center"
-        offset={TOAST_OFFSET}
-        mobileOffset={TOAST_OFFSET}
-      />
     </QueryClientProvider>
   </StrictMode>,
 );

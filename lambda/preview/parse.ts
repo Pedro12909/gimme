@@ -42,33 +42,56 @@ function cleanText(text: string | undefined) {
   return cleaned || undefined;
 }
 
-const TITLE_SEPARATORS = [" | ", " - ", " – ", " — ", " : "];
+const TITLE_SEPARATORS = [" | ", " - ", " – ", " — ", " : ", " · "];
 
-// Page titles often end with the shop's name, e.g. "Check Cashmere Scarf | Burberry® Official".
-// A trailing segment is dropped only when it mentions the shop, so product names that
-// contain a separator themselves are left alone.
-// The shop's brand from its domain: "www.fnac.pt" → "fnac", "uk.burberry.com" → "burberry"
+// Letters and digits only, without accents, for comparing names: "El Corte Inglés" → "elcorteingles"
+function squash(text: string) {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+// The shop's brand from its domain: "www.fnac.pt" → "fnac", "uk.burberry.com" → "burberry",
+// "www2.hm.com" → "hm", "smile.amazon.co.uk" → "amazon"
 function shopLabel(url: URL) {
-  return url.hostname
-    .replace(/^www\./, "")
-    .split(".")
-    .find(
-      (label) =>
-        label.length > 2 && !["www", "com", "shop", "store"].includes(label),
-    );
+  const labels = url.hostname.split(".");
+  // Country domains such as .co.uk and .com.br have two parts
+  const twoPartSuffix =
+    labels.length > 2 &&
+    labels.at(-1)!.length === 2 &&
+    ["co", "com", "net", "org", "ac", "gov"].includes(labels.at(-2)!);
+  const label = labels.at(twoPartSuffix ? -3 : -2);
+  return label && squash(label) ? squash(label) : undefined;
 }
 
 // Shop names declared by pages vary ("Burberry United Kingdom", "Allbirds UK", none at all),
-// so the vendor comes from the domain, using the page's casing when it starts with it ("IKEA")
-export function vendorFromUrl(url: URL, siteName?: string) {
+// so the vendor comes from the domain, spelled the way the page spells it when one of its
+// names starts with it: "elcorteingles" → "El Corte Inglés", "hm" → "H&M"
+export function vendorFromUrl(url: URL, ...pageNames: (string | undefined)[]) {
   const label = shopLabel(url);
   if (!label) return undefined;
-  if (siteName?.toLowerCase().startsWith(label.toLowerCase())) {
-    return siteName.slice(0, label.length);
+  for (const name of pageNames) {
+    for (let end = 1; name && end <= name.length; end++) {
+      const start = squash(name.slice(0, end));
+      if (start === label) return name.slice(0, end).trim();
+      if (!label.startsWith(start)) break;
+    }
   }
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+// Whether a piece of a title is about the shop. Short brands ("hm") must start it, since
+// they turn up inside other words.
+function mentionsShop(segment: string, shop: string) {
+  const squashed = squash(segment);
+  return shop.length >= 4 ? squashed.includes(shop) : squashed.startsWith(shop);
+}
+
+// Page titles often end with the shop's name, e.g. "Check Cashmere Scarf | Burberry® Official".
+// A trailing segment is dropped only when it mentions the shop, so product names that
+// contain a separator themselves are left alone.
 function stripShopName(title: string | undefined, url: URL) {
   if (!title) return title;
   const shop = shopLabel(url);
@@ -76,14 +99,20 @@ function stripShopName(title: string | undefined, url: URL) {
 
   for (const separator of TITLE_SEPARATORS) {
     const index = title.lastIndexOf(separator);
-    if (
-      index > 0 &&
-      title.slice(index).toLowerCase().includes(shop.toLowerCase())
-    ) {
-      return title.slice(0, index).trim();
+    if (index > 0 && mentionsShop(title.slice(index), shop)) {
+      // Again, for titles like "Bonsai Tree | LEGO® Icons | Official LEGO® Shop GB"
+      return stripShopName(title.slice(0, index).trim(), url);
     }
   }
   return title;
+}
+
+// "Apple (UK)", "IKEA", "Amazon.co.uk": the shop's own name, which is all some pages say
+// before their script fills them in. It says nothing about the product.
+function isShopName(title: string, url: URL) {
+  return (
+    squash(title.replace(/\(.*?\)|\.[a-z]{2,3}\b/gi, "")) === shopLabel(url)
+  );
 }
 
 // Marketplace titles pile specs onto the name: "Parker IM Fountain Pen | Matte Blue | Medium Nib
@@ -160,40 +189,38 @@ function metaTags(html: string) {
 
 type JsonObject = Record<string, unknown>;
 
-function findProduct(node: unknown): JsonObject | undefined {
+function findProduct(node: unknown, type: string): JsonObject | undefined {
   if (Array.isArray(node)) {
     for (const child of node) {
-      const found = findProduct(child);
+      const found = findProduct(child, type);
       if (found) return found;
     }
     return undefined;
   }
   if (node && typeof node === "object") {
     const object = node as JsonObject;
-    const type = object["@type"];
-    if (
-      type === "Product" ||
-      (Array.isArray(type) && type.includes("Product"))
-    ) {
+    if ([object["@type"]].flat().includes(type)) {
       return object;
     }
-    return findProduct(object["@graph"]);
+    return findProduct(object["@graph"], type);
   }
   return undefined;
 }
 
+// A Product, or else a ProductGroup (one product in several colours or sizes). Pages with
+// both describe the colour or size the link points to as the Product.
 function jsonLdProduct(html: string): JsonObject | undefined {
+  const blocks: unknown[] = [];
   for (const [, json] of html.matchAll(
     /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
   )) {
     try {
-      const product = findProduct(JSON.parse(json));
-      if (product) return product;
+      blocks.push(JSON.parse(json));
     } catch {
       // Malformed JSON-LD is common; try the next block
     }
   }
-  return undefined;
+  return findProduct(blocks, "Product") ?? findProduct(blocks, "ProductGroup");
 }
 
 function firstImage(image: unknown): string | undefined {
@@ -208,26 +235,47 @@ function firstImage(image: unknown): string | undefined {
 function parseGeneric(html: string, base: URL): Preview {
   const meta = metaTags(html);
   const product = jsonLdProduct(html);
-  const offers = product?.offers;
+  // A ProductGroup names the product without its colour, and keeps its prices on its
+  // variants. The page's Open Graph tags describe the variant the link points to, so they
+  // come first, and the group only adds a price.
+  const group = [product?.["@type"]].flat().includes("ProductGroup");
+  const variants = product?.hasVariant;
+  const variant = (Array.isArray(variants) ? variants[0] : variants) as
+    JsonObject | undefined;
+  const offers = product?.offers ?? variant?.offers;
   const offer = (Array.isArray(offers) ? offers[0] : offers) as
     JsonObject | undefined;
 
+  const pageTitle = cleanText(
+    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1],
+  );
+  const productName =
+    typeof product?.name === "string" ? product.name : undefined;
+  // The first name that is more than just the shop's
+  const title = (
+    group
+      ? [meta.get("og:title"), productName, pageTitle]
+      : [productName, meta.get("og:title"), pageTitle]
+  )
+    .map((name) => stripShopName(cleanText(name), base))
+    .find((name) => name && !isShopName(name, base));
+  // "BAGGEBO estante, branco - IKEA" → "IKEA"
+  const titleEnd = pageTitle
+    ?.split(/ [|·–—-] /)
+    .slice(1)
+    .at(-1);
+
   return {
-    title: truncateTitle(
-      shortenTitle(
-        stripShopName(
-          cleanText(product?.name as string | undefined) ??
-            cleanText(meta.get("og:title")) ??
-            cleanText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]),
-          base,
-        ),
-      ),
-    ),
-    imageUrl:
-      cleanImageUrl(firstImage(product?.image), base) ??
-      cleanImageUrl(meta.get("og:image:secure_url"), base) ??
-      cleanImageUrl(meta.get("og:image"), base),
-    vendor: vendorFromUrl(base, cleanText(meta.get("og:site_name"))),
+    title: truncateTitle(shortenTitle(title)),
+    imageUrl: [
+      group ? undefined : firstImage(product?.image),
+      meta.get("og:image:secure_url"),
+      meta.get("og:image"),
+      firstImage(product?.image ?? variant?.image),
+    ]
+      .map((image) => cleanImageUrl(image, base))
+      .find(Boolean),
+    vendor: vendorFromUrl(base, cleanText(meta.get("og:site_name")), titleEnd),
     price:
       formatPrice(offer?.price ?? offer?.lowPrice, offer?.priceCurrency) ??
       formatPrice(
@@ -246,6 +294,11 @@ function parseAmazon(html: string, base: URL): Preview {
     /id="(corePriceDisplay_desktop_feature_div|corePrice_feature_div|corePrice_desktop|apex_desktop)"/,
   );
   const priceRegion = corePriceStart >= 0 ? html.slice(corePriceStart) : html;
+  // The buy box's own price data comes first: on book pages the core price block starts
+  // with a blank price, followed by the recommended retail price rather than the actual one
+  const buyBoxPrice = match(
+    /"desktop_buybox_group_1":\[\{"displayPrice":"([^"]+)"/,
+  );
 
   return {
     title: truncateTitle(
@@ -260,7 +313,8 @@ function parseAmazon(html: string, base: URL): Preview {
       base,
     ),
     price: cleanText(
-      priceRegion.match(/<span class="a-offscreen">([^<]+)<\/span>/)?.[1],
+      buyBoxPrice ??
+        priceRegion.match(/<span class="a-offscreen">([^<]+)<\/span>/)?.[1],
     ),
   };
 }
@@ -337,6 +391,10 @@ export function nameFromUrl(url: URL): string | undefined {
         return "";
       }
 
+      // Drop leading article codes, e.g. El Corte Inglés' "A51380732-conjunto-de-2-frigideiras"
+      while (words.length > 0 && /^[a-z]{1,3}\d{4,}$/i.test(words[0])) {
+        words.shift();
+      }
       // Drop trailing IDs and SKUs (anything with a digit at the end, e.g. "p04424517", "7721309")
       while (
         words.length > 0 &&
@@ -362,4 +420,27 @@ export function nameFromUrl(url: URL): string | undefined {
   if (!best) return undefined;
 
   return truncateTitle(best.charAt(0).toUpperCase() + best.slice(1));
+}
+
+// The words shared or pasted along with the link: a shop app's "Kindle Paperwhite
+// https://amzn.eu/d/abc", or the page title a phone's browser shares. They come from the
+// owner's own device, so they are there even when the shop blocks the preview.
+export function nameFromText(text: string | undefined, url: URL) {
+  const words = cleanText(text?.replace(/\S*https?:\/\/\S+/g, " "))?.replace(
+    /^["'“”‘’«»]+|["'“”‘’«»]+$/g,
+    "",
+  );
+  if (!words) return undefined;
+
+  // A leading shop name, as in "Amazon.es: Kindle Paperwhite"
+  const prefix = words.match(/^(.{1,40}?)(?::| [|·–—-]) (.+)$/);
+  const name = stripShopName(
+    prefix && isShopName(prefix[1], url) ? prefix[2] : words,
+    url,
+  );
+
+  if (!name || !/\p{L}{2}/u.test(name) || isShopName(name, url)) {
+    return undefined;
+  }
+  return truncateTitle(shortenTitle(name));
 }

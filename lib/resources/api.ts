@@ -22,7 +22,7 @@ export function createApi(
     allowedOrigins,
   }: { auth: Auth; tables: Tables; allowedOrigins: string[] },
 ) {
-  const { listsTable, itemsTable, claimsTable } = tables;
+  const { listsTable, itemsTable, claimsTable, ownersTable } = tables;
 
   const ownerApiFn = new NodejsFunction(stack, "OwnerApiFn", {
     entry: "lambda/owner/index.ts",
@@ -31,10 +31,12 @@ export function createApi(
     environment: {
       LISTS_TABLE_NAME: listsTable.tableName,
       ITEMS_TABLE_NAME: itemsTable.tableName,
+      OWNERS_TABLE_NAME: ownersTable.tableName,
     },
   });
   listsTable.grantReadWriteData(ownerApiFn);
   itemsTable.grantReadWriteData(ownerApiFn);
+  ownersTable.grantReadWriteData(ownerApiFn);
 
   const guestApiFn = new NodejsFunction(stack, "GuestApiFn", {
     entry: "lambda/guest/index.ts",
@@ -44,11 +46,13 @@ export function createApi(
       LISTS_TABLE_NAME: listsTable.tableName,
       ITEMS_TABLE_NAME: itemsTable.tableName,
       CLAIMS_TABLE_NAME: claimsTable.tableName,
+      OWNERS_TABLE_NAME: ownersTable.tableName,
     },
   });
   listsTable.grantReadData(guestApiFn);
   itemsTable.grantReadData(guestApiFn);
   claimsTable.grantReadWriteData(guestApiFn);
+  ownersTable.grantReadData(guestApiFn);
 
   // Fetches shop pages for the add-item preview: internet access, but no table access at all
   const previewFn = new NodejsFunction(stack, "PreviewFn", {
@@ -110,6 +114,12 @@ export function createApi(
       HttpMethod.PATCH,
       HttpMethod.DELETE,
     ],
+    integration: ownerApiIntegration,
+    authorizer,
+  });
+  httpApi.addRoutes({
+    path: "/me",
+    methods: [HttpMethod.GET, HttpMethod.PATCH],
     integration: ownerApiIntegration,
     authorizer,
   });

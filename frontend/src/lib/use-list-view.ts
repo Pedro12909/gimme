@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { DEFAULT_VIEW, type ListView } from "@/lib/item-view";
 
-// How a list is laid out, grouped and sorted is remembered per list on this device, so a
-// "Gifts" list can stay a grid while "Books" stays a list. Searches and filters are not:
-// they answer the question of the moment.
-type Remembered = Pick<ListView, "layout" | "groupBy" | "sort">;
+// How a list is grouped and sorted is remembered per list on this device. Searches and
+// filters are not: they answer the question of the moment.
+type Remembered = Pick<ListView, "groupBy" | "sort">;
 
 const storageKey = (key: string) => `gimme:view:${key}`;
 
@@ -15,7 +14,6 @@ function load(key: string): ListView {
     ) as Partial<Remembered>;
     return {
       ...DEFAULT_VIEW,
-      ...(saved.layout && { layout: saved.layout }),
       ...(saved.groupBy && { groupBy: saved.groupBy }),
       ...(saved.sort && { sort: saved.sort }),
     };
@@ -30,7 +28,6 @@ export function useListView(key: string) {
 
   useEffect(() => {
     const remembered: Remembered = {
-      layout: view.layout,
       groupBy: view.groupBy,
       sort: view.sort,
     };
@@ -39,7 +36,7 @@ export function useListView(key: string) {
     } catch {
       // Without storage the view just resets on the next visit
     }
-  }, [key, view.layout, view.groupBy, view.sort]);
+  }, [key, view.groupBy, view.sort]);
 
   return [view, setView] as const;
 }

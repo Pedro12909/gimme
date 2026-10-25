@@ -1,141 +1,211 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/archivo/standard.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+/* The "Shelf" design (design/SPEC.md). Only the spec's colors exist, and nothing is rounded,
+   so Tailwind's own palette, radii and shadows are removed. */
+@theme {
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --font-sans: "Archivo Variable", system-ui, sans-serif;
 }
 
-@theme {
-  /* Landing page background: columns of sample lists scrolling slowly */
-  --animate-drift: drift 80s linear infinite;
-
-  @keyframes drift {
-    to {
-      transform: translateY(-50%);
-    }
-  }
+@theme inline {
+  --color-ground: var(--ground);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-hairline: var(--hairline);
+  --color-field: var(--field);
+  --color-tile: var(--tile);
+  --color-accent: var(--accent);
+  --color-veil: var(--veil);
+  /* Product photos are shot on white, so they keep a white tile in both themes */
+  --color-photo: #ffffff;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  color-scheme: light;
+  --ground: #f4f4f2;
+  --ink: #141414;
+  --muted: #6a6a66;
+  --hairline: #d6d6d2;
+  --field: #ffffff;
+  --tile: #e7e7e3;
+  --accent: #b3261e;
+  --veil: rgba(244, 244, 242, 0.72);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  color-scheme: dark;
+  --ground: #121211;
+  --ink: #ecebe7;
+  --muted: #a3a29d;
+  --hairline: #2e2e2b;
+  --field: #1b1b1a;
+  --tile: #1f1f1d;
+  --accent: #f0705f;
+  --veil: rgba(18, 18, 17, 0.72);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button {
+    border-radius: 0;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
-    @apply font-sans;
+    font-family: var(--font-sans);
+    background: var(--ground);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  ::placeholder {
+    color: var(--muted);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    flex: none;
+    accent-color: var(--ink);
+  }
+
+  /* Sheets and the phone editor are native dialogs; the page behind them stays put */
+  html:has(dialog[open]) {
+    overflow: hidden;
+  }
+  dialog::backdrop {
+    background: rgba(20, 20, 20, 0.4);
+  }
+  .dark dialog::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+  }
+}
+
+@layer components {
+  .page-title {
+    font-size: 44px;
+    line-height: 0.95;
+    font-weight: 700;
+    font-stretch: 75%;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  @media (width >= 40rem) {
+    .page-title {
+      font-size: 56px;
+      line-height: 1;
+    }
+  }
+
+  .section-title {
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 700;
+    font-stretch: 80%;
+    text-transform: uppercase;
+  }
+
+  .wordmark {
+    font-size: 16px;
+    font-weight: 700;
+    font-stretch: 112%;
+    letter-spacing: -0.01em;
+  }
+  @media (width >= 40rem) {
+    .wordmark {
+      font-size: 17px;
+    }
+  }
+
+  /* Every action is underlined text, tall enough to tap even when it looks like plain text */
+  .action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .action:hover:not(:disabled) {
+    text-decoration-thickness: 2px;
+  }
+  .action:disabled {
+    color: var(--muted);
+    cursor: default;
+  }
+  /* A select laid invisibly over its own label ("Sort: My order"), so the device's picker opens */
+  .action:has(select:focus-visible) {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  /* The only boxed control: a form's submit */
+  .submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0 24px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .submit:hover:not(:disabled) {
+    box-shadow: inset 0 0 0 1px var(--ink);
+  }
+  .submit:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .field {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    font-size: 16px;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--hairline);
+    appearance: none;
+  }
+  .field:focus,
+  .field[aria-invalid="true"] {
+    outline: none;
+    border-color: var(--ink);
+  }
+  textarea.field {
+    min-height: 76px;
+    resize: vertical;
+  }
+
+  .label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted);
   }
 }

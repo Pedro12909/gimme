@@ -32,6 +32,7 @@ const documentClient = DynamoDBDocumentClient.from(dbClient, {
 const listsTableName = process.env["LISTS_TABLE_NAME"];
 const itemsTableName = process.env["ITEMS_TABLE_NAME"];
 const claimsTableName = process.env["CLAIMS_TABLE_NAME"];
+const ownersTableName = process.env["OWNERS_TABLE_NAME"];
 
 const MAX_CLAIMER_NAME_LENGTH = 50;
 
@@ -62,7 +63,7 @@ app.get("/share/:token", async (ctx) => {
     return ctx.json({ error: "Not found" }, 404);
   }
 
-  const [itemsResult, claimsResult] = await Promise.all([
+  const [itemsResult, claimsResult, ownerResult] = await Promise.all([
     documentClient.send(
       new QueryCommand({
         TableName: itemsTableName,
@@ -75,6 +76,14 @@ app.get("/share/:token", async (ctx) => {
         TableName: claimsTableName,
         KeyConditionExpression: "listId = :listId",
         ExpressionAttributeValues: { ":listId": list.listId },
+      }),
+    ),
+    // Only the name: guests never learn anything else about the owner
+    documentClient.send(
+      new GetCommand({
+        TableName: ownersTableName,
+        Key: { ownerId: list.ownerId },
+        ProjectionExpression: "displayName",
       }),
     ),
   ]);
@@ -115,6 +124,7 @@ app.get("/share/:token", async (ctx) => {
     title: list.title,
     description: list.description,
     eventDate: list.eventDate,
+    ownerName: ownerResult.Item?.displayName,
     items,
   });
 });

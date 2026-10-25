@@ -6,6 +6,7 @@ import {
 } from "hono/aws-lambda";
 import {
   looksBlocked,
+  nameFromText,
   nameFromUrl,
   parsePreview,
   vendorFromUrl,
@@ -34,13 +35,20 @@ app.post("/preview", async (ctx) => {
   const body = await ctx.req.json().catch(() => null);
   const url = typeof body?.url === "string" ? body.url.trim() : "";
 
+  // Optional: the words shared or pasted along with the link
+  const text =
+    typeof body?.text === "string" ? body.text.slice(0, 1000) : undefined;
+
   if (!url || url.length > 2048) {
     return ctx.json({ error: "url is required" }, 400);
   }
 
-  // When the page itself can't be read, a name from the link is better than nothing
+  // When the page can't be read or has no name: the shared words, then the link itself
+  const fallbackTitle = (finalUrl: URL) =>
+    nameFromText(text, finalUrl) ?? nameFromUrl(finalUrl);
+
   const fallback = (finalUrl: URL, error: string, status: 502 | 504) => {
-    const title = nameFromUrl(finalUrl);
+    const title = fallbackTitle(finalUrl);
     return title
       ? ctx.json({ title, vendor: vendorFromUrl(finalUrl) })
       : ctx.json({ error }, status);
@@ -50,6 +58,12 @@ app.post("/preview", async (ctx) => {
     const { html, finalUrl, status } = await safeFetchHtml(url);
 
     if (looksBlocked(status, html)) {
+      // Which shops turn the Lambda away, for CloudWatch. Only the host: the rest of the
+      // link would show what's on someone's list.
+      console.warn("Shop blocked the preview", {
+        host: finalUrl.hostname,
+        status,
+      });
       return fallback(finalUrl, "The shop blocked the request", 502);
     }
     if (status >= 400) {
@@ -59,7 +73,7 @@ app.post("/preview", async (ctx) => {
     const preview = parsePreview(html, finalUrl);
     return ctx.json({
       ...preview,
-      title: preview.title ?? nameFromUrl(finalUrl),
+      title: preview.title ?? fallbackTitle(finalUrl),
     });
   } catch (err) {
     if (err instanceof FetchRefused) {

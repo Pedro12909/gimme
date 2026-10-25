@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeftIcon, EyeIcon } from "lucide-react";
 import { ClaimSheet } from "@/components/claim-sheet";
-import { GuestListView, type GuestActions } from "@/components/guest-list-view";
-import { PageShell } from "@/components/page-shell";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  GuestListView,
+  WhoseList,
+  type GuestActions,
+} from "@/components/guest-list-view";
+import { BackLink, PageShell } from "@/components/page-shell";
 import type { SharedItem } from "@/lib/guest-api";
-import { getList } from "@/lib/owner-api";
+import { getList, getMe } from "@/lib/owner-api";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { useListView } from "@/lib/use-list-view";
 
@@ -26,38 +26,24 @@ export default function ListPreview() {
     isMine: () => false,
   };
   // Same cache as the list page, so opening the preview from there is instant
-  const {
-    data: list,
-    isPending,
-    error,
-  } = useQuery({
+  const { data: list, error } = useQuery({
     queryKey: ["list", listId],
     queryFn: () => getList(listId),
   });
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: getMe });
   useDocumentTitle(list?.title);
 
   const header = (
     <>
-      <Button asChild variant="ghost" size="lg" className="-ml-3">
-        <Link to={`/lists/${listId}`}>
-          <ChevronLeftIcon />
-          Back to list
-        </Link>
-      </Button>
-      <ThemeToggle />
+      <BackLink to={`/lists/${listId}`}>Back to your list</BackLink>
+      <WhoseList ownerName={me?.displayName} />
     </>
   );
 
-  if (isPending || error) {
+  if (!list) {
     return (
       <PageShell header={header}>
-        {isPending ? (
-          <Skeleton className="h-8 w-2/3" />
-        ) : (
-          <p className="py-24 text-center text-muted-foreground">
-            Couldn't load this list.
-          </p>
-        )}
+        {error && <p className="text-muted">Couldn't load this list.</p>}
       </PageShell>
     );
   }
@@ -68,25 +54,26 @@ export default function ListPreview() {
   }));
 
   return (
-    <PageShell header={header} wide={view.layout === "grid"}>
+    <PageShell header={header}>
       <GuestListView
-        list={list}
+        list={{ ...list, ownerName: me?.displayName }}
         items={items}
         actions={previewActions}
         view={view}
         onViewChange={setView}
         notice={
-          <div className="flex items-start gap-3 rounded-lg border p-4 text-sm text-pretty">
-            <EyeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-            <p>
-              This is what guests see. Claims never show up for you, so
-              everything looks available here.
-            </p>
-          </div>
+          <p className="text-sm text-muted">
+            This is what guests see. Claims never show up for you, so everything
+            looks available here.
+          </p>
         }
       />
 
-      <ClaimSheet item={claiming} onClose={() => setClaiming(undefined)} />
+      <ClaimSheet
+        item={claiming}
+        ownerName={me?.displayName}
+        onClose={() => setClaiming(undefined)}
+      />
     </PageShell>
   );
 }

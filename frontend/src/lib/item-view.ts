@@ -57,35 +57,35 @@ export const itemLabel = (item: ViewableItem) =>
 export const itemVendor = (item: ViewableItem) =>
   item.vendor?.trim() || siteName(item.url);
 
-// "€19.99 · Amazon · Size M · gift wrap please". The shop is skipped when it's already the name.
-export function itemDetails(item: ViewableItem) {
+// "Apple · €279,00 · Size M", under the name on a tile. The shop is skipped when it's already
+// the name.
+export function itemMeta(item: ViewableItem) {
   const vendor = itemVendor(item);
   return [
-    item.price,
     vendor !== itemLabel(item) ? vendor : undefined,
-    item.size,
-    item.note,
+    item.price,
+    item.size && `Size ${item.size}`,
   ]
     .filter(Boolean)
     .join(" · ");
 }
 
+// "nothing yet", "1 thing", "6 things"
+export const countThings = (count: number) =>
+  count === 0 ? "nothing yet" : `${count} ${count === 1 ? "thing" : "things"}`;
+
 export type SortKey =
   "ranking" | "starred" | "priceAsc" | "priceDesc" | "vendor" | "newest";
 
-// "starred" is named by whoever shows it: "Starred first" for owners, "Most wanted first"
-// for guests
-export const SORT_LABELS: Record<
-  Exclude<SortKey, "ranking" | "starred">,
-  string
-> = {
+// "ranking" is named by whoever shows it: "My order" for owners, "List order" for guests
+export const SORT_LABELS: Record<Exclude<SortKey, "ranking">, string> = {
+  starred: "Want most first",
   priceAsc: "Price: low to high",
   priceDesc: "Price: high to low",
   vendor: "Shop",
   newest: "Newest",
 };
 
-export type Layout = "list" | "grid";
 export type GroupBy = "none" | "price" | "tag" | "shop";
 
 export const GROUP_LABELS: Record<GroupBy, string> = {
@@ -104,7 +104,6 @@ export type ListView = {
   starredOnly: boolean;
   // A budget: hides what costs more, and what has no price to compare
   maxPrice?: number;
-  layout: Layout;
   groupBy: GroupBy;
 };
 
@@ -114,7 +113,6 @@ export const DEFAULT_VIEW: ListView = {
   sort: "ranking",
   availableOnly: false,
   starredOnly: false,
-  layout: "list",
   groupBy: "none",
 };
 
@@ -312,13 +310,13 @@ function bandLabel(index: number, currency: string) {
 export type ItemGroup<T> = {
   key: string;
   label: string;
-  // "4 items · €68.40"
+  // "4 things · €68.40"
   summary: string;
   items: T[];
 };
 
 function summarise(items: ViewableItem[]) {
-  const count = `${items.length} ${items.length === 1 ? "item" : "items"}`;
+  const count = countThings(items.length);
   const priced = items.filter(hasPrice);
   const currencies = new Set(priced.map((item) => priceCurrency(item.price)));
   // A total across currencies would be meaningless

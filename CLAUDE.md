@@ -6,7 +6,7 @@ Wishlist web app at https://gimme.rtemis.dev. Owners (invite-only Cognito accoun
 
 - `frontend/`: React 19 + Vite + React Router + TanStack Query + Tailwind 4. Amplify is used for auth only.
 - `lambda/`: Hono handlers. `owner/` (lists and items), `guest/` (share token and claims), `preview/` (link scraping), `claims-cleanup/` (Items stream → delete claims), `auth-emails/` (Cognito messages).
-- `lib/`: AWS CDK stacks (eu-west-2, plus a us-east-1 certificate stack). DynamoDB tables: Lists, Items, Claims.
+- `lib/`: AWS CDK stacks (eu-west-2, plus a us-east-1 certificate stack). DynamoDB tables: Lists, Items, Claims, Owners (display name shown to guests).
 - Deploy: `npm run deploy` (builds the frontend, then `cdk deploy --all`). Local dev: `npm run dev`.
 
 ## Invariants (don't break these)

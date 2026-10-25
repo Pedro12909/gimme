@@ -124,8 +124,19 @@ export const newShareLink = (listId: string) =>
     method: "POST",
   });
 
-export const previewLink = (url: string) =>
-  ownerRequest<LinkPreview>("/preview", json("POST", { url }));
+// `text` is what was shared or pasted along with the link, e.g. "Kindle Paperwhite https://amzn.eu/d/abc".
+// It names the item when the shop's page can't be read.
+export const previewLink = (url: string, text?: string) =>
+  ownerRequest<LinkPreview>("/preview", json("POST", { url, text }));
+
+// The owner's own details; guests see the display name on shared lists ("Pedro's list")
+export type Me = { displayName?: string };
+
+export const getMe = () => ownerRequest<Me>("/me");
+
+// An empty name removes it
+export const updateMe = (displayName: string) =>
+  ownerRequest<Me>("/me", json("PATCH", { displayName }));
 
 export const shareUrl = (shareToken: string) =>
   `${window.location.origin}/s/${shareToken}`;

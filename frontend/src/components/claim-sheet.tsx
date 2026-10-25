@@ -1,37 +1,22 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { EyeIcon } from "lucide-react";
-import { toast } from "sonner";
-import { FormSheet } from "@/components/form-sheet";
-import { ItemHeadline, ShopButton } from "@/components/guest-list-view";
-import { ResponsiveModal } from "@/components/responsive-modal";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/modal";
+import { TileSquare } from "@/components/tile";
 import { ApiError, claimItem, type SharedItem } from "@/lib/guest-api";
 import {
   getClaimerName,
   saveClaimerName,
   saveClaimSecret,
 } from "@/lib/guest-storage";
-import { useJustChanged } from "@/lib/use-just-changed";
+import { itemLabel, itemMeta } from "@/lib/item-view";
 
 const MAX_NAME_LENGTH = 50;
 
-// Owners can't claim on their own list, but they're the ones relatives phone to ask how it
-// works. So they can walk through the same two steps, with nothing claimed at the end.
-function PreviewNote({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="flex items-start gap-2 rounded-lg border p-3 text-sm text-pretty">
-      <EyeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      {children}
-    </p>
-  );
-}
-
+// A bottom sheet on phones, a panel on the right on wider screens
 export function ClaimSheet({
   token,
   item,
+  ownerName,
   onClose,
   onClaimed,
 }: {
@@ -39,15 +24,12 @@ export function ClaimSheet({
   // nothing is sent and nothing is claimed.
   token?: string;
   item: SharedItem | undefined;
+  ownerName?: string;
   onClose: () => void;
   onClaimed?: () => void;
 }) {
-  const preview = token === undefined;
+  const headingId = useId();
   const [name, setName] = useState(getClaimerName);
-  // The item just claimed: the sheet stays open to point at the next step, buying it
-  const [claimed, setClaimed] = useState<SharedItem>();
-  // "Go to shop" appears where Claim was; a double tap shouldn't open the shop
-  const tooSoon = useJustChanged(claimed?.itemId);
 
   const claim = useMutation({
     mutationFn: async (target: SharedItem) =>
@@ -59,104 +41,121 @@ export function ClaimSheet({
         saveClaimSecret(target.itemId, result.claimSecret);
         saveClaimerName(name.trim());
       }
-      setClaimed(target);
-    },
-    onError: (err) => {
-      if (err instanceof ApiError && err.status === 409) {
-        // Claimed by someone else just now, or the owner already got it
-        toast.error("This isn't available anymore");
-        onClose();
-      } else {
-        toast.error("Couldn't claim this item. Try again.");
-      }
+      close();
     },
     onSettled: onClaimed,
   });
 
   const close = () => {
-    setClaimed(undefined);
+    claim.reset();
     onClose();
   };
 
-  if (claimed && item?.itemId === claimed.itemId) {
-    return (
-      <ResponsiveModal
-        open
-        onOpenChange={(open) => !open && close()}
-        title="You've claimed it"
-        description="Other guests now see it's taken. The person who made this list doesn't."
-        autoFocus={false}
-        footer={
-          <>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-11 flex-1 sm:h-9 sm:flex-none"
-              onClick={close}
-            >
-              Done
-            </Button>
-            <ShopButton
-              item={claimed}
-              variant="default"
-              onClick={(event) => tooSoon() && event.preventDefault()}
-              className="h-11 flex-1 sm:h-9 sm:flex-none"
-            />
-          </>
-        }
-      >
-        <div className="grid gap-4">
-          {preview && (
-            <PreviewNote>
-              This is what a guest sees next. Nothing was claimed.
-            </PreviewNote>
-          )}
-          <ItemHeadline item={claimed} />
-          {/* The claim secret lives in this browser only */}
-          <p className="text-sm text-muted-foreground text-pretty">
-            Changed your mind? You can unclaim it from this list, on this
-            device.
-          </p>
-        </div>
-      </ResponsiveModal>
-    );
-  }
+  // Claimed by someone else a moment ago, or the owner already got it
+  const gone = claim.error instanceof ApiError && claim.error.status === 409;
+  const meta = item && itemMeta(item);
 
   return (
-    <FormSheet
+    <Modal
       open={item !== undefined}
-      onOpenChange={(open) => !open && close()}
-      title="Claim this gift"
-      description="Other guests will see it's taken. The person who made this list won't."
-      submitLabel="Claim"
-      submitting={claim.isPending}
-      onSubmit={() => item && claim.mutate(item)}
-      // The name is optional, so don't open the phone keyboard over the item being claimed
-      autoFocus={false}
+      onClose={close}
+      labelledBy={headingId}
+      className="inset-x-0 top-auto bottom-0 max-h-[90svh] w-full max-w-none border-t border-ink bg-field sm:inset-y-0 sm:right-0 sm:left-auto sm:h-full sm:max-h-none sm:w-[440px] sm:border-t-0 sm:border-l sm:border-hairline"
     >
-      {preview && (
-        <PreviewNote>
-          This is what a guest sees. Try it: nothing gets claimed.
-        </PreviewNote>
+      {item && (
+        <div className="px-4 pt-6 pb-[max(32px,env(safe-area-inset-bottom))] sm:px-7 sm:pt-7">
+          {token === undefined && (
+            <p className="mb-5 text-[13px] text-muted">
+              This is what a guest sees. Nothing gets claimed.
+            </p>
+          )}
+
+          <div className="flex items-center gap-3.5">
+            <TileSquare
+              imageUrl={item.imageUrl}
+              className="w-16 shrink-0 border border-hairline"
+            />
+            <div className="min-w-0">
+              <h2
+                id={headingId}
+                className="line-clamp-3 text-lg leading-tight font-medium"
+              >
+                {itemLabel(item)}
+              </h2>
+              {meta && <p className="mt-0.5 text-[13px] text-muted">{meta}</p>}
+            </div>
+          </div>
+
+          {gone ? (
+            <div className="mt-6">
+              <p className="text-[15px]">
+                Someone else took this a moment ago.
+              </p>
+              <button
+                type="button"
+                className="action mt-2 w-full justify-center text-[15px]"
+                onClick={close}
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <form
+              noValidate
+              className="mt-[22px]"
+              onSubmit={(event) => {
+                event.preventDefault();
+                claim.mutate(item);
+              }}
+            >
+              <label
+                htmlFor="claimer-name"
+                className="block text-[13px] text-muted"
+              >
+                Your name, optional
+              </label>
+              <input
+                id="claimer-name"
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={MAX_NAME_LENGTH}
+                autoComplete="given-name"
+                aria-describedby="claimer-name-hint"
+                className="field mt-1.5"
+              />
+              {/* Guests held back from typing a name, unsure who would read it */}
+              <p
+                id="claimer-name-hint"
+                className="mt-2 text-[13px] leading-[1.45] text-muted"
+              >
+                Other guests will see it.{" "}
+                {ownerName ?? "The person who made this list"} won't. You can
+                undo it later on this device.
+              </p>
+              {claim.isError && (
+                <p role="alert" className="mt-3 text-[13px] font-medium">
+                  Couldn't claim it. Try again.
+                </p>
+              )}
+              <button
+                type="submit"
+                className="submit mt-[18px] min-h-[52px] w-full text-base"
+                disabled={claim.isPending}
+              >
+                {claim.isPending ? "One moment…" : "I'll get this"}
+              </button>
+              <button
+                type="button"
+                className="action mt-2 w-full justify-center text-[15px]"
+                onClick={close}
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+        </div>
       )}
-      {/* The full name, photo and price, so the guest can see exactly what they're committing to */}
-      {item && <ItemHeadline item={item} />}
-      <div className="grid gap-2">
-        <Label htmlFor="claimer-name">Your name (optional)</Label>
-        <Input
-          id="claimer-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={MAX_NAME_LENGTH}
-          autoComplete="given-name"
-          aria-describedby="claimer-name-hint"
-          className="h-11 text-base"
-        />
-        {/* Guests held back from typing a name, unsure who would read it */}
-        <p id="claimer-name-hint" className="text-sm text-muted-foreground">
-          Other guests see it next to this gift.
-        </p>
-      </div>
-    </FormSheet>
+    </Modal>
   );
 }

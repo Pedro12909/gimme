@@ -41,10 +41,12 @@ const documentClient = DynamoDBDocumentClient.from(dbClient, {
 
 const listsTableName = process.env["LISTS_TABLE_NAME"];
 const itemsTableName = process.env["ITEMS_TABLE_NAME"];
+const ownersTableName = process.env["OWNERS_TABLE_NAME"];
 
 const LIMITS = {
   listTitle: 100,
   description: 500,
+  displayName: 40,
 };
 
 const readBody = async (req: {
@@ -121,6 +123,51 @@ app.use("*", async (ctx, next) => {
   ctx.set("userId", sub as string);
 
   return next();
+});
+
+// The owner's own details. Guests see the display name on every shared list ("Pedro's list").
+app.get("/me", async (ctx) => {
+  const result = await documentClient.send(
+    new GetCommand({
+      TableName: ownersTableName,
+      Key: { ownerId: ctx.get("userId") },
+    }),
+  );
+
+  return ctx.json({ displayName: result.Item?.displayName });
+});
+
+// An empty displayName removes it
+app.patch("/me", async (ctx) => {
+  const body = await readBody(ctx.req);
+  if (!body) {
+    return ctx.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const error =
+    checkText(body.displayName, "displayName", LIMITS.displayName) ??
+    (body.displayName === undefined ? "displayName is required" : undefined);
+  if (error) {
+    return ctx.json({ error }, 400);
+  }
+
+  const displayName = (body.displayName as string).trim();
+  const ownerId = ctx.get("userId");
+
+  if (displayName === "") {
+    await documentClient.send(
+      new DeleteCommand({ TableName: ownersTableName, Key: { ownerId } }),
+    );
+  } else {
+    await documentClient.send(
+      new PutCommand({
+        TableName: ownersTableName,
+        Item: { ownerId, displayName },
+      }),
+    );
+  }
+
+  return ctx.json({ displayName: displayName || undefined });
 });
 
 app.post("/lists", async (ctx) => {

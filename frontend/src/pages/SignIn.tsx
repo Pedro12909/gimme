@@ -1,18 +1,13 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Wordmark } from "@/components/wordmark";
-import { PageShell } from "@/components/page-shell";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { PageShell, Wordmark } from "@/components/page-shell";
+import { SendCodeForm } from "@/components/send-code-form";
 import {
+  authErrorMessage,
   confirmCode,
   NeedsSignInCode,
   resendCode,
-  sendCode,
   type CodeMode,
 } from "@/lib/auth";
 import { authQueryKey, useAuth } from "@/lib/use-auth";
@@ -21,40 +16,27 @@ import { authQueryKey, useAuth } from "@/lib/use-auth";
 const CODE_LENGTH: Record<CodeMode, number> = { signIn: 8, signUp: 6 };
 const RESEND_COOLDOWN_SECONDS = 30;
 
-// Cognito errors arrive with a `name`; map the ones a person can act on to plain language
-function errorMessage(err: unknown): string {
-  const name = err instanceof Error ? err.name : "";
-
-  switch (name) {
-    case "NotInvited":
-      return "gimme is invite-only for now, and this email hasn't been invited.";
-    case "CodeMismatchException":
-      return "That code isn't right. Check it and try again.";
-    case "ExpiredCodeException":
-    case "NotAuthorizedException":
-      return "That code has expired. Send a new one.";
-    case "LimitExceededException":
-    case "TooManyRequestsException":
-      return "Too many attempts. Wait a few minutes and try again.";
-    case "InvalidParameterException":
-      return "Enter a valid email address.";
-    default:
-      return "Something went wrong. Try again.";
-  }
-}
+// Arrives with an email and mode when the code was sent from the landing page,
+// and with `from` when sign-in was needed to open a page
+type SignInState = { from?: string; email?: string; mode?: CodeMode } | null;
 
 export default function SignIn() {
   const { user, isPending } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const state = location.state as SignInState;
 
-  const [email, setEmail] = useState("");
-  const [mode, setMode] = useState<CodeMode>();
+  const [email, setEmail] = useState(state?.email ?? "");
+  const [mode, setMode] = useState(state?.mode);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, setCooldown] = useState(mode ? RESEND_COOLDOWN_SECONDS : 0);
+  // Said in place for a moment after "Send again"
+  const [resent, setResent] = useState(false);
+  // Sign-up confirmed, and a second code (to sign in) is on its way
+  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -62,26 +44,16 @@ export default function SignIn() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const destination =
-    (location.state as { from?: string } | null)?.from ?? "/lists";
+  useEffect(() => {
+    if (!resent) return;
+    const timer = setTimeout(() => setResent(false), 2000);
+    return () => clearTimeout(timer);
+  }, [resent]);
+
+  const destination = state?.from ?? "/lists";
 
   if (isPending) return null;
   if (user) return <Navigate to={destination} replace />;
-
-  const submitEmail = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError(undefined);
-
-    try {
-      setMode(await sendCode(email.trim()));
-      setCooldown(RESEND_COOLDOWN_SECONDS);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const submitCode = async (value: string) => {
     if (!mode || busy) return;
@@ -89,7 +61,7 @@ export default function SignIn() {
     setError(undefined);
 
     try {
-      await confirmCode(email.trim(), mode, value);
+      await confirmCode(email, mode, value);
       await queryClient.invalidateQueries({ queryKey: authQueryKey });
       navigate(destination, { replace: true });
     } catch (err) {
@@ -97,9 +69,9 @@ export default function SignIn() {
         setMode("signIn");
         setCode("");
         setCooldown(RESEND_COOLDOWN_SECONDS);
-        toast("Email verified. We sent you one more code to sign in.");
+        setVerified(true);
       } else {
-        setError(errorMessage(err));
+        setError(authErrorMessage(err));
       }
     } finally {
       setBusy(false);
@@ -111,156 +83,129 @@ export default function SignIn() {
     setError(undefined);
 
     try {
-      await resendCode(email.trim(), mode);
+      await resendCode(email, mode);
       setCode("");
       setCooldown(RESEND_COOLDOWN_SECONDS);
-      toast("New code sent");
+      setResent(true);
     } catch (err) {
-      setError(errorMessage(err));
+      setError(authErrorMessage(err));
     }
   };
-
-  const codeLength = mode ? CODE_LENGTH[mode] : 0;
 
   const changeEmail = () => {
     setMode(undefined);
     setCode("");
     setError(undefined);
+    setVerified(false);
   };
 
+  const codeLength = mode ? CODE_LENGTH[mode] : 0;
+
   return (
-    <PageShell
-      header={
+    <PageShell header={<Wordmark />} mainClassName="pt-12 sm:pt-18">
+      {!mode ? (
         <>
-          <Wordmark />
-          <ThemeToggle />
+          <h1 className="page-title">Sign in</h1>
+          <div className="mt-8">
+            <SendCodeForm
+              autoFocus
+              onSent={(sentTo, sentMode) => {
+                setEmail(sentTo);
+                setMode(sentMode);
+                setCooldown(RESEND_COOLDOWN_SECONDS);
+              }}
+            />
+          </div>
         </>
-      }
-      mainClassName="flex flex-col justify-center py-16"
-    >
-      <div className="mx-auto w-full max-w-sm">
-        {!mode ? (
-          <form onSubmit={submitEmail} noValidate>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Continue with email
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              We'll email you a code. No password needed.
-            </p>
+      ) : (
+        <div className="max-w-[520px]">
+          <h1 className="page-title">Check your email</h1>
+          <p className="mt-4 text-[15px] leading-normal">
+            {verified
+              ? "Email confirmed. We sent one more code, to sign in, to "
+              : "We sent a code to "}
+            {/* Moves to its own line as a whole; only breaks if longer than a full line */}
+            <span className="inline-block max-w-full font-medium [overflow-wrap:anywhere]">
+              {email}
+            </span>
+            .{mode === "signIn" && " It works for 10 minutes."}
+          </p>
 
-            <div className="mt-8 grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                autoFocus
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                aria-invalid={error !== undefined}
-                aria-describedby={error ? "auth-error" : undefined}
-                className="h-11 text-base"
-              />
-            </div>
-
-            <ErrorText message={error} />
-
-            <Button
-              type="submit"
-              size="lg"
-              className="mt-6 h-11 w-full"
-              disabled={busy || !email.includes("@")}
-            >
-              Continue
-            </Button>
-          </form>
-        ) : (
           <form
+            noValidate
+            className="mt-8"
             onSubmit={(event) => {
               event.preventDefault();
               submitCode(code);
             }}
-            noValidate
           >
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Check your email
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              Enter the {codeLength}-digit code we sent to{" "}
-              {/* Moves to its own line as a whole; only breaks if longer than a full line */}
-              <span className="inline-block max-w-full font-medium text-foreground [overflow-wrap:anywhere]">
-                {email.trim()}.
-              </span>
-            </p>
-
-            <div className="mt-8 grid gap-2">
-              <Label htmlFor="code">Code</Label>
-              <Input
-                id="code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                autoFocus
-                maxLength={codeLength}
-                value={code}
-                onChange={(event) => {
-                  const digits = event.target.value
-                    .replace(/\D/g, "")
-                    .slice(0, codeLength);
-                  setCode(digits);
-                  // Submit as soon as the code is complete, including when pasted or autofilled
-                  if (digits.length === codeLength) submitCode(digits);
-                }}
-                aria-invalid={error !== undefined}
-                aria-describedby={error ? "auth-error" : undefined}
-                className="h-11 text-center font-mono text-lg tracking-[0.5em]"
-              />
-            </div>
-
-            <ErrorText message={error} />
-
-            <Button
+            <label htmlFor="code" className="block text-[13px] text-muted">
+              Code
+            </label>
+            <input
+              id="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              maxLength={codeLength}
+              value={code}
+              onChange={(event) => {
+                const digits = event.target.value
+                  .replace(/\D/g, "")
+                  .slice(0, codeLength);
+                setCode(digits);
+                // Submit as soon as the code is complete, including when pasted or autofilled
+                if (digits.length === codeLength) submitCode(digits);
+              }}
+              aria-invalid={error !== undefined}
+              aria-describedby={error ? "code-error" : undefined}
+              className="field mt-2 min-h-16 border-ink px-4 text-[32px] font-medium tracking-[0.2em]"
+            />
+            {error && (
+              <p
+                id="code-error"
+                role="alert"
+                className="mt-2.5 text-[13px] font-medium"
+              >
+                {error}
+              </p>
+            )}
+            <button
               type="submit"
-              size="lg"
-              className="mt-6 h-11 w-full"
+              className="submit mt-4 min-h-[52px] w-full text-base"
               disabled={busy || code.length !== codeLength}
             >
-              {busy ? "Signing in…" : "Continue"}
-            </Button>
-
-            <div className="mt-6 flex items-center justify-between text-sm">
-              <Button
-                type="button"
-                variant="link"
-                className="px-0"
-                onClick={changeEmail}
-              >
-                Use a different email
-              </Button>
-              <Button
-                type="button"
-                variant="link"
-                className="px-0"
-                onClick={resend}
-                disabled={cooldown > 0}
-              >
-                {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
-              </Button>
-            </div>
+              {busy ? "Signing in…" : "Sign in"}
+            </button>
           </form>
-        )}
-      </div>
+
+          <p className="mt-6 text-sm text-muted">
+            {resent ? (
+              "Sent. Check your email again."
+            ) : (
+              <>
+                Nothing yet?{" "}
+                <button
+                  type="button"
+                  className="action text-ink disabled:text-muted"
+                  onClick={resend}
+                  disabled={cooldown > 0}
+                >
+                  {cooldown > 0 ? `Send again in ${cooldown}s` : "Send again"}
+                </button>{" "}
+                or{" "}
+                <button
+                  type="button"
+                  className="action text-ink"
+                  onClick={changeEmail}
+                >
+                  use another email
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+      )}
     </PageShell>
-  );
-}
-
-function ErrorText({ message }: { message?: string }) {
-  if (!message) return null;
-
-  return (
-    <p id="auth-error" role="alert" className="mt-3 text-sm text-destructive">
-      {message}
-    </p>
   );
 }

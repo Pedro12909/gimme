@@ -23,11 +23,10 @@ export function daysUntil(value: string) {
 export const isUpcoming = (value: string | undefined) =>
   value !== undefined && daysUntil(value) >= 0;
 
-// "Saturday 14 March", with the year only when it isn't this year
+// "25 December", with the year only when it isn't this year
 export function formatEventDate(value: string) {
   const date = parseDay(value);
   return date.toLocaleDateString("en-GB", {
-    weekday: "long",
     day: "numeric",
     month: "long",
     year:
@@ -35,19 +34,11 @@ export function formatEventDate(value: string) {
   });
 }
 
-// "Today", "Tomorrow", "In 12 days"; nothing for past dates or ones far enough away
-// that the date alone says enough
+// "today", "tomorrow", "in 62 days"; nothing for past dates
 export function relativeEventDate(value: string) {
   const days = daysUntil(value);
-  if (days < 0 || days > 60) return undefined;
-  if (days === 0) return "Today";
-  if (days === 1) return "Tomorrow";
-  return `In ${days} days`;
-}
-
-// "Saturday 14 March · In 12 days"
-export function describeEventDate(value: string) {
-  return [formatEventDate(value), relativeEventDate(value)]
-    .filter(Boolean)
-    .join(" · ");
+  if (days < 0) return undefined;
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  return `in ${days} days`;
 }

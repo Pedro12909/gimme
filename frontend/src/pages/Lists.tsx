@@ -1,34 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
-import { toast } from "sonner";
-import { AccountMenu } from "@/components/account-menu";
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import { PageShell } from "@/components/page-shell";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { ListFormSheet } from "@/components/owner-forms";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Wordmark } from "@/components/wordmark";
-import { ItemThumbnail } from "@/components/item-thumbnail";
-import { describeEventDate, isUpcoming } from "@/lib/event-date";
+import { OwnerHeader, PageShell } from "@/components/page-shell";
+import { TileSquare } from "@/components/tile";
+import { formatEventDate, isUpcoming } from "@/lib/event-date";
 import { rememberOwnShareTokens } from "@/lib/guest-storage";
-import {
-  createList,
-  deleteList,
-  getLists,
-  updateList,
-  type ListInput,
-  type ListSummary,
-} from "@/lib/owner-api";
+import { countThings } from "@/lib/item-view";
+import { createList, getLists, getMe, type ListSummary } from "@/lib/owner-api";
 
 // Lists with an occasion coming up go first, soonest first; the rest newest first
 function compareLists(a: ListSummary, b: ListSummary) {
@@ -39,28 +17,23 @@ function compareLists(a: ListSummary, b: ListSummary) {
   return b.createdAt.localeCompare(a.createdAt);
 }
 
-function listDetails(list: ListSummary) {
-  const count =
-    list.itemCount === undefined
-      ? undefined
-      : list.itemCount === 0
-        ? "No items yet"
-        : `${list.itemCount} ${list.itemCount === 1 ? "item" : "items"}`;
-  // Past dates aren't worth the space
-  const date =
-    list.eventDate && isUpcoming(list.eventDate)
-      ? describeEventDate(list.eventDate)
-      : undefined;
-  return [list.isPrivate && "Private", count, date].filter(Boolean).join(" · ");
+// "25 December · 6 things · shared"
+function listMeta(list: ListSummary) {
+  return [
+    list.eventDate ? formatEventDate(list.eventDate) : "No date",
+    list.itemCount !== undefined && countThings(list.itemCount),
+    list.isPrivate ? "private" : "shared",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
+
+const PREVIEW_TILES = 3;
 
 export default function Lists() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [creating, setCreating] = useState(false);
-  // Tidying up happens here too: a list can be renamed or deleted without opening it
-  const [editing, setEditing] = useState<ListSummary>();
-  const [deleting, setDeleting] = useState<ListSummary>();
+  const [title, setTitle] = useState("");
 
   const {
     data: lists,
@@ -71,37 +44,21 @@ export default function Lists() {
     queryKey: ["lists"],
     queryFn: getLists,
   });
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: getMe });
 
   const create = useMutation({
-    mutationFn: createList,
+    mutationFn: () =>
+      createList({
+        title: title.trim(),
+        description: "",
+        eventDate: "",
+        isPrivate: false,
+      }),
     onSuccess: (list) => {
       queryClient.invalidateQueries({ queryKey: ["lists"] });
-      setCreating(false);
-      // Straight into the new list, where the next step is adding items
+      // Straight into the new list, where the next step is adding things
       navigate(`/lists/${list.listId}`);
     },
-    onError: () => toast.error("Couldn't create the list. Try again."),
-  });
-
-  const edit = useMutation({
-    mutationFn: ({ listId, input }: { listId: string; input: ListInput }) =>
-      updateList(listId, input),
-    onSuccess: (_, { listId }) => {
-      queryClient.invalidateQueries({ queryKey: ["lists"] });
-      queryClient.invalidateQueries({ queryKey: ["list", listId] });
-      setEditing(undefined);
-    },
-    onError: () => toast.error("Couldn't save. Try again."),
-  });
-
-  const remove = useMutation({
-    mutationFn: deleteList,
-    onSuccess: (_, listId) => {
-      queryClient.removeQueries({ queryKey: ["list", listId] });
-      queryClient.invalidateQueries({ queryKey: ["lists"] });
-      toast("List deleted");
-    },
-    onError: () => toast.error("Couldn't delete the list. Try again."),
   });
 
   // Lets the guest page recognise this owner's own links on this device
@@ -116,160 +73,106 @@ export default function Lists() {
   const sorted = [...(lists ?? [])].sort(compareLists);
 
   return (
-    <PageShell
-      header={
-        <>
-          <Wordmark />
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <AccountMenu />
-          </div>
-        </>
-      }
-    >
-      {isPending ? (
-        <div className="space-y-3">
-          <Skeleton className="h-8 w-1/2" />
-          <Skeleton className="mt-8 h-14 w-full" />
-          <Skeleton className="h-14 w-full" />
+    <PageShell header={<OwnerHeader />}>
+      <h1 className="page-title">Your lists</h1>
+
+      <form
+        noValidate
+        className="mt-6 max-w-[640px] sm:mt-8"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (title.trim()) create.mutate();
+        }}
+      >
+        <div className="flex">
+          <label htmlFor="new-list" className="sr-only">
+            Name a new list
+          </label>
+          <input
+            id="new-list"
+            type="text"
+            placeholder="Name a new list, e.g. Birthday"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            maxLength={100}
+            autoComplete="off"
+            enterKeyHint="go"
+            className="field min-h-[52px] min-w-0 flex-1 border-r-0 px-4"
+          />
+          <button
+            type="submit"
+            className="submit min-h-[52px] px-5"
+            disabled={create.isPending}
+          >
+            Create
+          </button>
         </div>
-      ) : error ? (
-        <div className="py-24 text-center">
-          <p className="text-muted-foreground">Couldn't load your lists.</p>
-          <Button
-            variant="outline"
-            size="lg"
-            className="mt-6"
+        {create.isError && (
+          <p role="alert" className="mt-2 text-[13px] font-medium">
+            Couldn't create the list. Try again.
+          </p>
+        )}
+        {/* Guests see lists as "Pedro's list" once the owner has a name */}
+        {me && !me.displayName && (
+          <p className="mt-2.5 text-[13px] text-muted">
+            Guests will see whose list it is once you add your name in{" "}
+            <Link
+              to="/account"
+              className="text-ink underline underline-offset-3"
+            >
+              Account
+            </Link>
+            .
+          </p>
+        )}
+      </form>
+
+      {error ? (
+        <p className="mt-12 text-muted">
+          Couldn't load your lists.{" "}
+          <button
+            type="button"
+            className="action text-ink"
             onClick={() => refetch()}
           >
             Try again
-          </Button>
-        </div>
-      ) : sorted.length === 0 ? (
-        <div className="flex flex-col items-center py-24 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Start your first list
-          </h1>
-          <p className="mt-2 max-w-xs text-muted-foreground text-pretty">
-            Add things you'd love, then share one link with the people who ask.
-          </p>
-          <Button
-            size="lg"
-            className="mt-8 h-11 px-6"
-            onClick={() => setCreating(true)}
-          >
-            <PlusIcon />
-            New list
-          </Button>
-        </div>
+          </button>
+        </p>
       ) : (
-        <>
-          <div className="flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Your lists
-            </h1>
-            <Button size="lg" onClick={() => setCreating(true)}>
-              <PlusIcon />
-              New list
-            </Button>
-          </div>
-
-          <ul className="mt-6 divide-y border-y">
-            {sorted.map((list) => (
-              <li key={list.listId} className="flex items-center gap-1">
-                <Link
-                  to={`/lists/${list.listId}`}
-                  className="-ml-2 flex min-w-0 flex-1 items-center gap-4 rounded-md px-2 py-4 hover:bg-muted/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{list.title}</p>
-                    <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                      {listDetails(list)}
-                    </p>
-                  </div>
-                  {/* A few photos make lists recognisable without reading */}
-                  {list.previewImages && list.previewImages.length > 0 && (
-                    <div
-                      className="flex shrink-0 -space-x-2"
+        !isPending && (
+          <ul className="mt-10 flex flex-col gap-10 sm:mt-12">
+            {sorted.map((list) => {
+              const images = list.previewImages ?? [];
+              return (
+                <li key={list.listId}>
+                  <Link
+                    to={`/lists/${list.listId}`}
+                    className="group flex flex-wrap items-end gap-x-7 gap-y-3"
+                  >
+                    {/* A few photos make lists recognisable without reading */}
+                    <span
                       aria-hidden="true"
+                      className="grid w-full grid-cols-3 gap-0.5 sm:w-[400px]"
                     >
-                      {list.previewImages.map((src, index) => (
-                        <ItemThumbnail
-                          key={index}
-                          src={src}
-                          className="size-9 ring-2 ring-background"
-                        />
+                      {Array.from({ length: PREVIEW_TILES }, (_, index) => (
+                        <TileSquare key={index} imageUrl={images[index]} />
                       ))}
-                    </div>
-                  )}
-                </Link>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-lg"
-                      className="-mr-2 shrink-0"
-                      aria-label={`Options for ${list.title}`}
-                    >
-                      <MoreHorizontalIcon className="size-5 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-40">
-                    <DropdownMenuItem onSelect={() => setEditing(list)}>
-                      Edit list
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={() => setDeleting(list)}
-                    >
-                      Delete list
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </li>
-            ))}
+                    </span>
+                    <span className="flex flex-col gap-1.5 pb-1">
+                      <span className="text-[28px] leading-none font-bold uppercase [font-stretch:80%] [overflow-wrap:anywhere] underline-offset-4 group-hover:underline">
+                        {list.title}
+                      </span>
+                      <span className="text-sm text-muted">
+                        {listMeta(list)}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
-        </>
+        )
       )}
-
-      <ListFormSheet
-        open={creating}
-        onOpenChange={setCreating}
-        heading="New list"
-        submitLabel="Create list"
-        submitting={create.isPending}
-        onSave={(input) => create.mutate(input)}
-      />
-
-      <ListFormSheet
-        open={editing !== undefined}
-        onOpenChange={(open) => !open && setEditing(undefined)}
-        heading="Edit list"
-        submitLabel="Save"
-        autoFocus={false}
-        initial={
-          editing && {
-            title: editing.title,
-            description: editing.description ?? "",
-            eventDate: editing.eventDate ?? "",
-            isPrivate: editing.isPrivate ?? false,
-          }
-        }
-        submitting={edit.isPending}
-        onSave={(input) =>
-          editing && edit.mutate({ listId: editing.listId, input })
-        }
-      />
-
-      <ConfirmDialog
-        open={deleting !== undefined}
-        onOpenChange={(open) => !open && setDeleting(undefined)}
-        title={`Delete ${deleting?.title ?? "list"}?`}
-        description="The list and its items will be deleted, and the shared link will stop working. This can't be undone."
-        confirmLabel="Delete list"
-        onConfirm={() => deleting && remove.mutate(deleting.listId)}
-      />
     </PageShell>
   );
 }

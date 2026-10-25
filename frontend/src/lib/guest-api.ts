@@ -27,6 +27,8 @@ export type SharedList = {
   title: string;
   description?: string;
   eventDate?: string;
+  // The owner's display name, if they set one ("Pedro")
+  ownerName?: string;
   items: SharedItem[];
 };
 
