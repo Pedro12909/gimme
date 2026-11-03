@@ -1,299 +1,186 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { FormSheet } from "@/components/form-sheet";
-import { ItemSummary } from "@/components/item-summary";
+import { ClaimSheet } from "@/components/claim-sheet";
 import {
-  ListControls,
-  MIN_ITEMS_FOR_CONTROLS,
-} from "@/components/list-controls";
-import { PageShell } from "@/components/page-shell";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Wordmark } from "@/components/wordmark";
+  GuestListView,
+  WhoseList,
+  type GuestActions,
+} from "@/components/guest-list-view";
+import { PageShell, Wordmark } from "@/components/page-shell";
 import {
   ApiError,
-  claimItem,
   getSharedList,
   unclaimItem,
   type SharedItem,
 } from "@/lib/guest-api";
 import {
   forgetClaimSecret,
-  getClaimerName,
   getClaimSecret,
-  saveClaimerName,
-  saveClaimSecret,
+  isOwnShareToken,
 } from "@/lib/guest-storage";
-import {
-  applyView,
-  collectTags,
-  DEFAULT_VIEW,
-  itemLabel,
-  type ListView,
-} from "@/lib/item-view";
-
-const MAX_NAME_LENGTH = 50;
+import { useDocumentTitle } from "@/lib/use-document-title";
+import { useListView } from "@/lib/use-list-view";
 
 export default function SharedList() {
   const { token = "" } = useParams();
   const queryClient = useQueryClient();
   const [claiming, setClaiming] = useState<SharedItem>();
-  const [view, setView] = useState<ListView>(DEFAULT_VIEW);
+  const [view, setView] = useListView(`share:${token}`);
+
+  // An owner opening their own link sees it without claims, unless they choose otherwise.
+  // Showing them can't be taken back once seen, so it's asked twice.
+  const ownList = useMemo(() => isOwnShareToken(token), [token]);
+  const [claims, setClaims] = useState<"hidden" | "asking" | "shown">("hidden");
+  const claimsHidden = ownList && claims !== "shown";
 
   const queryKey = ["share", token];
   const {
     data: list,
     error,
-    isPending,
+    refetch,
   } = useQuery({
     queryKey,
     queryFn: () => getSharedList(token),
     retry: (count, err) =>
       !(err instanceof ApiError && err.status === 404) && count < 2,
   });
+  useDocumentTitle(list?.title);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey });
 
   const unclaim = useMutation({
     mutationFn: (item: SharedItem) =>
       unclaimItem(token, item.itemId, getClaimSecret(item.itemId) ?? ""),
-    onSuccess: (_, item) => {
-      forgetClaimSecret(item.itemId);
-      toast(`${itemLabel(item)} is available again`);
-    },
+    onSuccess: (_, item) => forgetClaimSecret(item.itemId),
     onError: (err, item) => {
+      // The claim is gone or no longer ours, so the stored secret is useless
       if (err instanceof ApiError && err.status === 403) {
-        // The claim is gone or no longer ours, so the stored secret is useless
         forgetClaimSecret(item.itemId);
-        toast.error("This item was already released");
-      } else {
-        toast.error("Couldn't release this item. Try again.");
       }
     },
     onSettled: refresh,
   });
 
-  const items = useMemo(() => list?.items ?? [], [list]);
-  const tags = useMemo(() => collectTags(items), [items]);
-  // Items arrive in the owner's order; available ones come first whichever sort is chosen
-  const shown = useMemo(
-    () => applyView(items, view, { claimedLast: true }),
-    [items, view],
-  );
+  const items = useMemo(() => {
+    const all = list?.items ?? [];
+    return claimsHidden
+      ? all.map((item) => ({ ...item, claimed: false, claimerName: undefined }))
+      : all;
+  }, [list, claimsHidden]);
+  const claimedCount = items.filter((item) => item.claimed).length;
+
+  const actions: GuestActions = {
+    onClaim: setClaiming,
+    onUnclaim: (item) => unclaim.mutate(item),
+    unclaimingId: unclaim.isPending ? unclaim.variables?.itemId : undefined,
+    unclaimFailedId:
+      unclaim.isError &&
+      !(unclaim.error instanceof ApiError && unclaim.error.status === 403)
+        ? unclaim.variables?.itemId
+        : undefined,
+    isMine: (item) => getClaimSecret(item.itemId) !== undefined,
+  };
 
   const header = (
     <>
       {/* Also a way in for guests who want a list of their own */}
       <Wordmark />
-      <ThemeToggle />
+      <WhoseList ownerName={list?.ownerName} />
     </>
   );
-
-  if (isPending) {
-    return (
-      <PageShell header={header}>
-        <Skeleton className="h-8 w-2/3" />
-        <div className="mt-8 space-y-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-16 w-full" />
-          ))}
-        </div>
-      </PageShell>
-    );
-  }
 
   if (error) {
     const notFound = error instanceof ApiError && error.status === 404;
 
     return (
       <PageShell header={header}>
-        <div className="py-24 text-center">
-          <h1 className="text-lg font-medium">
-            {notFound ? "This link doesn't work" : "Something went wrong"}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {notFound
-              ? "The list may have been deleted or shared with a new link. Ask for a fresh one."
-              : "Check your connection and try again."}
-          </p>
-          {!notFound && (
-            <Button variant="outline" className="mt-6" onClick={refresh}>
-              Try again
-            </Button>
-          )}
-        </div>
+        <h1 className="page-title">
+          {notFound ? "This link doesn't work" : "Something went wrong"}
+        </h1>
+        <p className="mt-4 max-w-[560px] text-[15px]">
+          {notFound
+            ? "The list may have been deleted or shared with a new link. Ask for a fresh one."
+            : "Check your connection and try again."}
+        </p>
+        {!notFound && (
+          <button
+            type="button"
+            className="action mt-2"
+            onClick={() => refetch()}
+          >
+            Try again
+          </button>
+        )}
       </PageShell>
     );
   }
 
+  if (!list) return <PageShell header={header}>{null}</PageShell>;
+
   return (
     <PageShell header={header}>
-      <h1 className="text-2xl font-semibold tracking-tight text-balance">
-        {list.title}
-      </h1>
-      {list.description && (
-        <p className="mt-2 text-muted-foreground text-pretty">
-          {list.description}
-        </p>
-      )}
-
-      {items.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted-foreground">
-          Nothing on this list yet.
-        </p>
-      ) : (
-        <>
-          {items.length >= MIN_ITEMS_FOR_CONTROLS && (
-            <div className="mt-8">
-              <ListControls
-                view={view}
-                onChange={setView}
-                tags={tags}
-                rankingLabel="List order"
-                showAvailableFilter
-                shownCount={shown.length}
-                totalCount={items.length}
-              />
-            </div>
-          )}
-
-          {shown.length > 0 ? (
-            <ul className="mt-4 divide-y border-y">
-              {shown.map((item) => (
-                <ItemRow
-                  key={item.itemId}
-                  item={item}
-                  onClaim={() => setClaiming(item)}
-                  onUnclaim={() => unclaim.mutate(item)}
-                  unclaiming={
-                    unclaim.isPending &&
-                    unclaim.variables?.itemId === item.itemId
+      <GuestListView
+        list={list}
+        items={items}
+        actions={actions}
+        view={view}
+        onViewChange={setView}
+        notice={
+          // Stays in place after revealing, so the list doesn't jump and claims can be hidden again
+          ownList && (
+            <p className="text-sm text-muted">
+              {claims === "hidden" &&
+                "This is your list, so claims are hidden to keep the surprise. "}
+              {claims === "asking" &&
+                "You'll see what's taken, and by whom if they left a name. "}
+              {/* With nothing claimed the list looks the same as before, so say so */}
+              {claims === "shown" &&
+                (claimedCount === 0
+                  ? "This is your list. Nobody has claimed anything yet. "
+                  : `This is your list: ${claimedCount} of ${items.length} claimed. `)}
+              <span className="inline-flex gap-x-4">
+                <button
+                  type="button"
+                  className="action text-ink"
+                  onClick={() =>
+                    setClaims(
+                      claims === "hidden"
+                        ? "asking"
+                        : claims === "asking"
+                          ? "shown"
+                          : "hidden",
+                    )
                   }
-                />
-              ))}
-            </ul>
-          ) : (
-            <p className="py-16 text-center text-sm text-muted-foreground">
-              No items match.
+                >
+                  {claims === "hidden" && "Show them anyway"}
+                  {claims === "asking" && "Show claims"}
+                  {claims === "shown" && "Hide claims"}
+                </button>
+                {claims === "asking" && (
+                  <button
+                    type="button"
+                    className="action text-ink"
+                    onClick={() => setClaims("hidden")}
+                  >
+                    Keep them hidden
+                  </button>
+                )}
+              </span>
             </p>
-          )}
-        </>
-      )}
+          )
+        }
+      />
 
       <ClaimSheet
-        token={token}
+        // While claims are hidden the owner only walks through the steps: a real attempt
+        // could give away that something is already taken
+        token={claimsHidden ? undefined : token}
         item={claiming}
+        ownerName={list.ownerName}
         onClose={() => setClaiming(undefined)}
         onClaimed={refresh}
       />
     </PageShell>
-  );
-}
-
-function ItemRow({
-  item,
-  onClaim,
-  onUnclaim,
-  unclaiming,
-}: {
-  item: SharedItem;
-  onClaim: () => void;
-  onUnclaim: () => void;
-  unclaiming: boolean;
-}) {
-  const mine = item.claimed && getClaimSecret(item.itemId) !== undefined;
-  const status = mine
-    ? "Claimed by you"
-    : item.claimerName
-      ? `Claimed by ${item.claimerName}`
-      : "Claimed";
-
-  return (
-    <li className="flex items-center gap-3 py-3">
-      <ItemSummary item={item} linkName dimmed={item.claimed}>
-        {item.claimed && (
-          <p className="mt-0.5 text-sm text-muted-foreground">{status}</p>
-        )}
-      </ItemSummary>
-
-      {!item.claimed && (
-        <Button variant="outline" size="lg" onClick={onClaim}>
-          Claim
-        </Button>
-      )}
-      {mine && (
-        <Button
-          variant="ghost"
-          size="lg"
-          onClick={onUnclaim}
-          disabled={unclaiming}
-        >
-          Unclaim
-        </Button>
-      )}
-    </li>
-  );
-}
-
-function ClaimSheet({
-  token,
-  item,
-  onClose,
-  onClaimed,
-}: {
-  token: string;
-  item: SharedItem | undefined;
-  onClose: () => void;
-  onClaimed: () => void;
-}) {
-  const [name, setName] = useState(getClaimerName);
-
-  const claim = useMutation({
-    mutationFn: (target: SharedItem) =>
-      claimItem(token, target.itemId, name.trim()),
-    onSuccess: ({ claimSecret }, target) => {
-      saveClaimSecret(target.itemId, claimSecret);
-      saveClaimerName(name.trim());
-      toast(`You claimed ${itemLabel(target)}`);
-      onClose();
-    },
-    onError: (err) => {
-      if (err instanceof ApiError && err.status === 409) {
-        toast.error("Someone else just claimed this");
-        onClose();
-      } else {
-        toast.error("Couldn't claim this item. Try again.");
-      }
-    },
-    onSettled: onClaimed,
-  });
-
-  return (
-    <FormSheet
-      open={item !== undefined}
-      onOpenChange={(open) => !open && onClose()}
-      title={<>Claim {item && itemLabel(item)}</>}
-      description="Other guests will see it's taken. The list owner won't."
-      submitLabel="Claim"
-      submitting={claim.isPending}
-      onSubmit={() => item && claim.mutate(item)}
-    >
-      <div className="grid gap-2">
-        <Label htmlFor="claimer-name">Your name (optional)</Label>
-        <Input
-          id="claimer-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={MAX_NAME_LENGTH}
-          autoComplete="given-name"
-          className="h-11 text-base"
-        />
-      </div>
-    </FormSheet>
   );
 }

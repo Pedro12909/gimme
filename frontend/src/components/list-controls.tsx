@@ -1,26 +1,57 @@
-import { ArrowUpDownIcon, SearchIcon, XIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import {
-  DEFAULT_VIEW,
+  clearFilters,
+  GROUP_LABELS,
   isFiltered,
   SORT_LABELS,
+  type Budget,
+  type GroupBy,
   type ListView,
   type SortKey,
 } from "@/lib/item-view";
 import { cn } from "@/lib/utils";
 
-// Below this many items, scanning the list is quicker than searching it
-export const MIN_ITEMS_FOR_CONTROLS = 4;
+// Guests: below this many items, scanning the list is quicker than searching it.
+// Owners always get the controls, since they also use the list as their own tracker.
+export const MIN_ITEMS_FOR_GUEST_CONTROLS = 4;
 
-function Chip({
+// "Sort: My order" as plain text, with the device's own picker laid invisibly over it
+function Choice<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  const current = options.find((option) => option.value === value);
+
+  return (
+    <label className="action relative gap-1 no-underline">
+      <span className="text-muted">{label}:</span>
+      <span className="underline underline-offset-3">
+        {current?.label ?? options[0].label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as T)}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// A filter word: ink and medium when on, muted when off
+function Toggle({
   pressed,
   onClick,
   children,
@@ -34,12 +65,7 @@ function Chip({
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={cn(
-        "h-8 shrink-0 rounded-full border px-3 text-sm transition-colors",
-        pressed
-          ? "border-foreground bg-foreground text-background"
-          : "border-border text-muted-foreground hover:text-foreground",
-      )}
+      className={cn("action", pressed ? "font-medium" : "text-muted")}
     >
       {children}
     </button>
@@ -51,7 +77,9 @@ export function ListControls({
   onChange,
   tags,
   rankingLabel,
-  showAvailableFilter = false,
+  availableLabel,
+  showStarred = false,
+  budgets = [],
   shownCount,
   totalCount,
 }: {
@@ -60,13 +88,17 @@ export function ListControls({
   tags: string[];
   // "My order" for owners, "List order" for guests
   rankingLabel: string;
-  showAvailableFilter?: boolean;
+  // "Available" for guests, "Not got yet" for owners; left out when everything is available
+  availableLabel?: string;
+  // Only when something is starred
+  showStarred?: boolean;
+  // Price limits worth offering for this list; none when prices don't spread enough
+  budgets?: Budget[];
   shownCount: number;
   totalCount: number;
 }) {
+  const [searching, setSearching] = useState(view.query !== "");
   const set = (changes: Partial<ListView>) => onChange({ ...view, ...changes });
-  const sortLabel =
-    view.sort === "ranking" ? rankingLabel : SORT_LABELS[view.sort];
 
   const toggleTag = (tag: string) =>
     set({
@@ -75,91 +107,138 @@ export function ListControls({
         : [...view.tags, tag],
     });
 
-  const hasChips = showAvailableFilter || tags.length > 0;
+  // A sort that was remembered stays on offer after the last star is removed
+  const offerStarredFirst = showStarred || view.sort === "starred";
+  const sorts: { value: SortKey; label: string }[] = [
+    { value: "ranking", label: rankingLabel },
+    ...(Object.entries(SORT_LABELS) as [SortKey, string][])
+      .filter(([value]) => value !== "starred" || offerStarredFirst)
+      .map(([value, label]) => ({ value, label })),
+  ];
+  const groups = (Object.keys(GROUP_LABELS) as GroupBy[]).map((groupBy) => ({
+    value: groupBy,
+    label: GROUP_LABELS[groupBy],
+  }));
+  // A budget stays visible while it's set, even if the prices it was offered for have changed
+  const showBudget = budgets.length > 0 || view.maxPrice !== undefined;
+  const budgetOptions = [
+    { value: "", label: "Any" },
+    ...budgets.map((budget) => ({
+      value: String(budget.value),
+      label: budget.label,
+    })),
+    ...(view.maxPrice !== undefined &&
+    !budgets.some((budget) => budget.value === view.maxPrice)
+      ? [{ value: String(view.maxPrice), label: `Up to ${view.maxPrice}` }]
+      : []),
+  ];
+
+  const hasToggles = availableLabel || showStarred || tags.length > 0;
 
   return (
-    <div className="grid gap-3">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search"
-            aria-label="Search items"
-            value={view.query}
-            onChange={(event) => set({ query: event.target.value })}
-            className="h-10 pl-9 text-base sm:text-sm"
+    <div className="text-sm">
+      <div className="flex flex-wrap items-center gap-x-6">
+        {searching ? (
+          <div className="flex w-full items-center gap-4 sm:w-80">
+            <input
+              type="search"
+              aria-label="Search this list"
+              placeholder="Search"
+              autoFocus
+              value={view.query}
+              onChange={(event) => set({ query: event.target.value })}
+              className="field min-h-11 min-w-0 flex-1 py-2"
+            />
+            <button
+              type="button"
+              className="action"
+              onClick={() => {
+                set({ query: "" });
+                setSearching(false);
+              }}
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="action"
+            onClick={() => setSearching(true)}
+          >
+            Search
+          </button>
+        )}
+        <Choice
+          label="Sort"
+          value={view.sort}
+          options={sorts}
+          onChange={(sort) => set({ sort })}
+        />
+        <Choice
+          label="Group"
+          value={view.groupBy}
+          options={groups}
+          onChange={(groupBy) => set({ groupBy })}
+        />
+        {showBudget && (
+          <Choice
+            label="Budget"
+            value={view.maxPrice === undefined ? "" : String(view.maxPrice)}
+            options={budgetOptions}
+            onChange={(value) =>
+              set({ maxPrice: value ? Number(value) : undefined })
+            }
           />
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-10 gap-2"
-              aria-label={`Sort: ${sortLabel}`}
-            >
-              <ArrowUpDownIcon />
-              {/* The label is hidden on narrow screens to leave room for search */}
-              <span className="hidden sm:inline">{sortLabel}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuRadioGroup
-              value={view.sort}
-              onValueChange={(sort) => set({ sort: sort as SortKey })}
-            >
-              <DropdownMenuRadioItem value="ranking">
-                {rankingLabel}
-              </DropdownMenuRadioItem>
-              {Object.entries(SORT_LABELS).map(([key, label]) => (
-                <DropdownMenuRadioItem key={key} value={key}>
-                  {label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        )}
       </div>
 
-      {hasChips && (
-        // One scrollable row on phones instead of wrapping into several lines
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-          {showAvailableFilter && (
-            <Chip
+      {hasToggles && (
+        <div className="flex flex-wrap gap-x-5">
+          {showStarred && (
+            <Toggle
+              pressed={view.starredOnly}
+              onClick={() => set({ starredOnly: !view.starredOnly })}
+            >
+              Want most
+            </Toggle>
+          )}
+          {availableLabel && (
+            <Toggle
               pressed={view.availableOnly}
               onClick={() => set({ availableOnly: !view.availableOnly })}
             >
-              Available
-            </Chip>
+              {availableLabel}
+            </Toggle>
           )}
           {tags.map((tag) => (
-            <Chip
+            <Toggle
               key={tag}
               pressed={view.tags.includes(tag)}
               onClick={() => toggleTag(tag)}
             >
               {tag}
-            </Chip>
+            </Toggle>
           ))}
         </div>
       )}
 
       {isFiltered(view) && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <p className="flex items-center gap-3 text-muted">
           <span aria-live="polite">
-            {shownCount} of {totalCount} items
+            Showing {shownCount} of {totalCount}
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-mr-2"
-            onClick={() => onChange({ ...DEFAULT_VIEW, sort: view.sort })}
+          <button
+            type="button"
+            className="action text-ink"
+            onClick={() => {
+              onChange(clearFilters(view));
+              setSearching(false);
+            }}
           >
-            <XIcon />
-            Clear filters
-          </Button>
-        </div>
+            Clear
+          </button>
+        </p>
       )}
     </div>
   );

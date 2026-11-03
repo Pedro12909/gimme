@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shelf — shared list (guest)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,500;62..125,700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#141414;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #f4f4f2; color: #141414; font-family: 'Archivo', sans-serif">
+  <header style="display: flex; justify-content: space-between; align-items: center; padding: 16px 16px 0">
+    <span style="font-weight: 700; font-size: 16px; font-stretch: 112%">gimme</span>
+    <span style="font-size: 13px; color: #6a6a66">Pedro's list</span>
+  </header>
+
+  <section style="padding: 28px 16px 20px">
+    <h1 style="margin: 0; font-size: 44px; line-height: 0.95; font-weight: 700; font-stretch: 75%; text-transform: uppercase">Christmas 2026</h1>
+    <p style="margin: 10px 0 0; font-size: 14px; color: #6a6a66">25 December · in 62 days</p>
+    <p style="margin: 14px 0 0; font-size: 14px; line-height: 1.45">Claim something so nobody doubles up. Pedro won't see who.</p>
+  </section>
+
+  <ul style="list-style: none; margin: 0; padding: 0 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 2px">
+    <sc-for list="{{items}}" as="item" hint-placeholder-count="4">
+      <li>
+        <a href="#" aria-label="Open {{item.name}} in the shop" style="display: block; position: relative; aspect-ratio: 1 / 1; background: {{item.tone}}">
+          <sc-if value="{{item.taken}}" hint-placeholder-val="{{false}}">
+            <span style="position: absolute; inset: 0; background: rgba(244,244,242,0.72)"></span>
+            <span style="position: absolute; left: 10px; bottom: 8px; font-size: 13px; font-weight: 500">Taken</span>
+          </sc-if>
+        </a>
+        <div style="padding: 8px 10px 0 12px">
+          <div style="font-size: 14px; font-weight: 500; line-height: 1.3; color: {{item.ink}}">{{item.name}}</div>
+          <div style="margin-top: 2px; font-size: 12px; color: #6a6a66">{{item.shop}} · {{item.price}}</div>
+          <sc-if value="{{item.open}}" hint-placeholder-val="{{true}}">
+            <button type="button" style="margin-top: 2px; min-height: 40px; font-size: 14px; font-weight: 500; text-decoration: underline; text-underline-offset: 3px">Claim</button>
+          </sc-if>
+          <sc-if value="{{item.mine}}" hint-placeholder-val="{{false}}">
+            <div style="margin-top: 2px; min-height: 40px; display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="font-weight: 500; color: #b3261e">Yours</span><button type="button" style="color: #6a6a66; text-decoration: underline; text-underline-offset: 3px">Undo</button></div>
+          </sc-if>
+        </div>
+      </li>
+    </sc-for>
+  </ul>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const items = [
+      { name: 'AirPods Pro 3', shop: 'Apple', price: '€279,00', state: 'open', tone: '#e2e1dc' },
+      { name: 'Kindle Paperwhite, 16 GB', shop: 'Amazon', price: '€169,99', state: 'taken', tone: '#2f2f2d' },
+      { name: 'Moka Express, 6 cups', shop: 'Bialetti', price: '€42,90', state: 'mine', tone: '#b4b3ad' },
+      { name: 'In Rainbows — Radiohead, LP', shop: 'Fnac', price: '€32,99', state: 'open', tone: '#cfc8b9' }
+    ];
+    return {
+      items: items.map((it) => ({
+        ...it,
+        open: it.state === 'open',
+        mine: it.state === 'mine',
+        taken: it.state === 'taken',
+        ink: it.state === 'taken' ? '#6a6a66' : '#141414'
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

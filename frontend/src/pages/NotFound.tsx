@@ -1,20 +1,13 @@
-import { PageShell } from "@/components/page-shell";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Wordmark } from "@/components/wordmark";
+import { Link } from "react-router";
+import { PageShell, Wordmark } from "@/components/page-shell";
 
 export default function NotFound() {
   return (
-    <PageShell
-      header={
-        <>
-          <Wordmark />
-          <ThemeToggle />
-        </>
-      }
-    >
-      <div className="py-24 text-center">
-        <h1 className="text-lg font-medium">Page not found</h1>
-      </div>
+    <PageShell header={<Wordmark />}>
+      <h1 className="page-title">Page not found</h1>
+      <Link to="/" className="action mt-2">
+        Go to gimme
+      </Link>
     </PageShell>
   );
 }

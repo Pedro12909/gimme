@@ -131,4 +131,26 @@ export async function accessToken() {
   return tokens?.accessToken.toString();
 }
 
+// Cognito errors arrive with a `name`; map the ones a person can act on to plain language
+export function authErrorMessage(err: unknown): string {
+  const name = err instanceof Error ? err.name : "";
+
+  switch (name) {
+    case "NotInvited":
+      return "gimme is invite-only for now, and this email hasn't been invited.";
+    case "CodeMismatchException":
+      return "That code isn't right. Check it and try again.";
+    case "ExpiredCodeException":
+    case "NotAuthorizedException":
+      return "That code has expired. Send a new one.";
+    case "LimitExceededException":
+    case "TooManyRequestsException":
+      return "Too many attempts. Wait a few minutes and try again.";
+    case "InvalidParameterException":
+      return "Enter a valid email address.";
+    default:
+      return "Something went wrong. Try again.";
+  }
+}
+
 export { signOut };

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gimme — new empty list</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,500;62..125,700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#141414;text-decoration:none}
+input::placeholder{color:#6a6a66}
+input:focus{outline:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #f4f4f2; color: #141414; font-family: 'Archivo', sans-serif">
+  <header style="display: flex; justify-content: space-between; align-items: center; padding: 6px 16px 0; min-height: 44px">
+    <a href="#" style="font-size: 14px; min-height: 44px; display: flex; align-items: center">← Lists</a>
+    <a href="#" style="font-size: 14px; min-height: 44px; display: flex; align-items: center">Settings</a>
+  </header>
+
+  <section style="padding: 16px 16px 0">
+    <h1 style="margin: 0; font-size: 44px; line-height: 0.95; font-weight: 700; font-stretch: 75%; text-transform: uppercase">Birthday</h1>
+    <p style="margin: 10px 0 0; font-size: 14px; color: #6a6a66">No date · nothing yet</p>
+    <label for="adde" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Add something by link</label>
+    <input id="adde" type="url" placeholder="Paste a link to add something" style="margin-top: 20px; width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; color: #141414; background: #ffffff; border: 1px solid #141414; border-radius: 0; padding: 13px 14px; min-height: 50px">
+  </section>
+
+  <div style="margin: 20px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px" aria-hidden="true">
+    <div style="aspect-ratio: 1 / 1; background: #e7e7e3"></div>
+    <div style="aspect-ratio: 1 / 1; background: #ebebe8"></div>
+  </div>
+  <div style="padding: 20px 16px 0; font-size: 15px; line-height: 1.5">
+    <p style="margin: 0">Copy a product link from any shop and paste it above. We'll fill in the name, photo and price.</p>
+    <p style="margin: 12px 0 0; color: #6a6a66">On Android you can also tap Share in a shop's app and pick gimme.</p>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

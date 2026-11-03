@@ -4,7 +4,6 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import { loadConfig } from "@/config";
-import { Toaster } from "@/components/ui/sonner";
 import SharedList from "@/pages/SharedList";
 import NotFound from "@/pages/NotFound";
 
@@ -29,6 +28,19 @@ const router = createBrowserRouter([
         path: "/lists/:listId",
         lazy: page(() => import("@/pages/ListDetail")),
       },
+      {
+        path: "/lists/:listId/settings",
+        lazy: page(() => import("@/pages/ListSettings")),
+      },
+      {
+        path: "/lists/:listId/preview",
+        lazy: page(() => import("@/pages/ListPreview")),
+      },
+      { path: "/account", lazy: page(() => import("@/pages/Account")) },
+      {
+        path: "/share-target",
+        lazy: page(() => import("@/pages/ShareTarget")),
+      },
     ],
   },
   { path: "/s/:token", Component: SharedList },
@@ -39,7 +51,6 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-      <Toaster position="top-center" />
     </QueryClientProvider>
   </StrictMode>,
 );

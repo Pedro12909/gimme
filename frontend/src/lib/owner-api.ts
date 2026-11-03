@@ -23,8 +23,19 @@ export type List = {
   listId: string;
   title: string;
   description?: string;
+  // "2026-12-25"
+  eventDate?: string;
+  // The owner's own tracker: the share link doesn't work
+  isPrivate?: boolean;
   shareToken: string;
   createdAt: string;
+};
+
+// From GET /lists only: enough to tell lists apart on the lists screen.
+// Optional so an older API (mid-deploy) doesn't break the page.
+export type ListSummary = List & {
+  itemCount?: number;
+  previewImages?: string[];
 };
 
 export type Item = {
@@ -42,13 +53,21 @@ export type Item = {
   size?: string;
   alternatives?: string[];
   tags?: string[];
+  starred?: boolean;
+  got?: boolean;
   position?: string;
   createdAt: string;
 };
 
 export type ListWithItems = List & { items: Item[] };
 
-export type ListInput = { title: string; description: string };
+// An empty eventDate clears it
+export type ListInput = {
+  title: string;
+  description: string;
+  eventDate: string;
+  isPrivate: boolean;
+};
 // Empty optional fields are removed by the API
 export type ItemInput = {
   url: string;
@@ -62,6 +81,8 @@ export type ItemInput = {
   tags: string[];
   // A finished upload to attach as the item's photo; it replaces imageUrl
   imageUpload?: string;
+  starred: boolean;
+  got: boolean;
 };
 
 export type LinkPreview = {
@@ -75,7 +96,7 @@ const listPath = (listId: string) => `/lists/${encodeURIComponent(listId)}`;
 const itemPath = (listId: string, itemId: string) =>
   `${listPath(listId)}/items/${encodeURIComponent(itemId)}`;
 
-export const getLists = () => ownerRequest<List[]>("/lists");
+export const getLists = () => ownerRequest<ListSummary[]>("/lists");
 
 export const getList = (listId: string) =>
   ownerRequest<ListWithItems>(listPath(listId));
@@ -130,8 +151,19 @@ export async function uploadImage(listId: string, image: Blob) {
   return key;
 }
 
-export const previewLink = (url: string) =>
-  ownerRequest<LinkPreview>("/preview", json("POST", { url }));
+// `text` is what was shared or pasted along with the link, e.g. "Kindle Paperwhite https://amzn.eu/d/abc".
+// It names the item when the shop's page can't be read.
+export const previewLink = (url: string, text?: string) =>
+  ownerRequest<LinkPreview>("/preview", json("POST", { url, text }));
+
+// The owner's own details; guests see the display name on shared lists ("Pedro's list")
+export type Me = { displayName?: string };
+
+export const getMe = () => ownerRequest<Me>("/me");
+
+// An empty name removes it
+export const updateMe = (displayName: string) =>
+  ownerRequest<Me>("/me", json("PATCH", { displayName }));
 
 export const shareUrl = (shareToken: string) =>
   `${window.location.origin}/s/${shareToken}`;

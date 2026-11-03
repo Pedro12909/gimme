@@ -163,6 +163,17 @@ export function readItemInput(
     fields.tags = [...unique.values()];
   }
 
+  // Owner-only flags: "really want this" and "got it" (bought or received). Stored only when
+  // true; false becomes "", which is removed like any cleared field.
+  for (const field of ["starred", "got"] as const) {
+    const value = body[field];
+    if (value === undefined) continue;
+    if (typeof value !== "boolean") {
+      return { error: `${field} must be true or false` };
+    }
+    fields[field] = value ? true : "";
+  }
+
   // Position: only set by reordering; new items always go to the bottom
   if (mode === "update" && body.position !== undefined) {
     if (

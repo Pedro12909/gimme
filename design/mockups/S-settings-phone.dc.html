@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gimme — list settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,500;62..125,700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#141414;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input,textarea{font:inherit;font-size:16px;color:#141414;background:#ffffff;border:1px solid #d6d6d2;border-radius:0;padding:12px;width:100%;box-sizing:border-box}
+input:focus,textarea:focus{outline:none;border-color:#141414}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#6a6a66}
+input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:#141414}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #f4f4f2; color: #141414; font-family: 'Archivo', sans-serif">
+  <header style="display: flex; justify-content: space-between; align-items: center; padding: 6px 16px 0; min-height: 44px">
+    <a href="#" style="font-size: 14px; min-height: 44px; display: flex; align-items: center">← Christmas 2026</a>
+  </header>
+
+  <main style="padding: 16px 16px 0">
+    <h1 style="margin: 0; font-size: 44px; line-height: 0.95; font-weight: 700; font-stretch: 75%; text-transform: uppercase">Settings</h1>
+
+    <form style="margin-top: 24px; display: flex; flex-direction: column; gap: 16px">
+      <label class="f">Name<input type="text" value="Christmas 2026"></label>
+      <label class="f">Date<input type="date" value="2026-12-25"></label>
+      <label class="f">Note for guests<textarea rows="2" placeholder="e.g. sizes, or where to send things"></textarea></label>
+      <label style="display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.4; padding-top: 4px"><input type="checkbox" style="margin-top: 1px"><span>Private<br><span style="font-size: 13px; color: #6a6a66">The share link stops working until you turn this off.</span></span></label>
+      <div style="display: flex; align-items: center; gap: 20px">
+        <button type="submit" style="min-height: 48px; padding: 0 24px; border: 1px solid #141414; font-size: 15px; font-weight: 500">Save</button>
+        <a href="#" style="font-size: 15px; text-decoration: underline; text-underline-offset: 3px">Cancel</a>
+      </div>
+    </form>
+
+    <div style="margin-top: 36px; padding-top: 20px; border-top: 1px solid #d6d6d2; display: flex; flex-direction: column; gap: 16px; font-size: 15px">
+      <div>
+        <button type="button" style="min-height: 32px; text-decoration: underline; text-underline-offset: 3px">Make a new share link</button>
+        <p style="margin: 2px 0 0; font-size: 13px; color: #6a6a66">The old link stops working. Claims are kept.</p>
+      </div>
+      <div>
+        <button type="button" style="min-height: 32px; color: #b3261e; text-decoration: underline; text-underline-offset: 3px">Delete this list</button>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

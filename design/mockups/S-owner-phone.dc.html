@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gimme — Christmas 2026 (owner, phone)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,500;62..125,700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#141414;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input::placeholder{color:#6a6a66}
+input:focus{outline:none;border-color:#141414}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #f4f4f2; color: #141414; font-family: 'Archivo', sans-serif">
+  <header style="display: flex; justify-content: space-between; align-items: center; padding: 6px 16px 0; min-height: 44px">
+    <a href="#" style="font-size: 14px; min-height: 44px; display: flex; align-items: center">← Lists</a>
+    <a href="#" style="font-size: 14px; min-height: 44px; display: flex; align-items: center">Settings</a>
+  </header>
+
+  <section style="padding: 16px 16px 0">
+    <h1 style="margin: 0; font-size: 44px; line-height: 0.95; font-weight: 700; font-stretch: 75%; text-transform: uppercase">Christmas 2026</h1>
+    <p style="margin: 10px 0 0; font-size: 14px; color: #6a6a66">25 December · 6 things</p>
+    <div style="margin-top: 6px; display: flex; gap: 20px; font-size: 14px">
+      <button type="button" style="min-height: 40px; text-decoration: underline; text-underline-offset: 3px">Share link</button>
+      <a href="#" style="min-height: 40px; display: flex; align-items: center; text-decoration: underline; text-underline-offset: 3px">See it as a guest</a>
+    </div>
+    <label for="addp" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Add something by link</label>
+    <input id="addp" type="url" placeholder="Paste a link to add something" style="margin-top: 10px; width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; color: #141414; background: #ffffff; border: 1px solid #d6d6d2; border-radius: 0; padding: 13px 14px; min-height: 50px">
+  </section>
+
+  <ul style="list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 2px">
+    <sc-for list="{{items}}" as="item" hint-placeholder-count="4">
+      <li>
+        <a href="#" aria-label="Edit {{item.name}}" style="display: block; position: relative; aspect-ratio: 1 / 1; background: {{item.tone}}">
+          <sc-if value="{{item.got}}" hint-placeholder-val="{{false}}">
+            <span style="position: absolute; inset: 0; background: rgba(244,244,242,0.72)"></span>
+            <span style="position: absolute; left: 10px; bottom: 8px; font-size: 13px; font-weight: 500">You got this</span>
+          </sc-if>
+        </a>
+        <div style="padding: 8px 10px 0 12px">
+          <div style="font-size: 14px; font-weight: 500; line-height: 1.3">{{item.name}}</div>
+          <div style="margin-top: 2px; font-size: 12px; color: #6a6a66">{{item.shop}} · {{item.price}}</div>
+          <sc-if value="{{item.starred}}" hint-placeholder-val="{{false}}">
+            <div style="margin-top: 2px; font-size: 12px; font-weight: 500; color: #b3261e">Want most</div>
+          </sc-if>
+        </div>
+      </li>
+    </sc-for>
+  </ul>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      items: [
+        { name: 'AirPods Pro 3', shop: 'Apple', price: '€279,00', starred: true, tone: '#e2e1dc' },
+        { name: 'Kindle Paperwhite, 16 GB', shop: 'Amazon', price: '€169,99', tone: '#2f2f2d' },
+        { name: 'Merino crew-neck, size M', shop: 'Uniqlo', price: '€39,90', got: true, tone: '#56606c' },
+        { name: 'In Rainbows — Radiohead, LP', shop: 'Fnac', price: '€32,99', starred: true, tone: '#cfc8b9' }
+      ].map((it) => ({ ...it, starred: !!it.starred, got: !!it.got }))
+    };
+  }
+}
+</script>
+</body>
+</html>
