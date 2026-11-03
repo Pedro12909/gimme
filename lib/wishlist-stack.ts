@@ -6,6 +6,7 @@ import { SiteDomain } from "./certificate-stack";
 import { createApi } from "./resources/api";
 import { createAuth } from "./resources/auth";
 import { createClaimsCleanup } from "./resources/claims-cleanup";
+import { createImagesBucket } from "./resources/images";
 import { createSite, deploySite } from "./resources/site";
 import { createTables } from "./resources/tables";
 
@@ -21,14 +22,22 @@ export class WishlistStack extends cdk.Stack {
   ) {
     super(scope, id, props);
 
+    const allowedOrigins = [
+      `https://${props.site.domainName}`,
+      "http://localhost:5173",
+    ];
+
     const tables = createTables(this);
-    const site = createSite(this, props.site);
+    const imagesBucket = createImagesBucket(this, { allowedOrigins });
+    const site = createSite(this, props.site, imagesBucket);
     const auth = createAuth(this, site.siteUrl);
 
     const { httpApi } = createApi(this, {
       auth,
       tables,
-      allowedOrigins: [site.siteUrl, "http://localhost:5173"],
+      allowedOrigins,
+      imagesBucket,
+      siteUrl: site.siteUrl,
     });
 
     createClaimsCleanup(this, tables);

@@ -34,6 +34,8 @@ export type Item = {
   title?: string;
   note?: string;
   imageUrl?: string;
+  // Set when the image is a photo the owner uploaded
+  imageKey?: string;
   price?: string;
   priceValue?: number;
   vendor?: string;
@@ -58,6 +60,8 @@ export type ItemInput = {
   size: string;
   alternatives: string[];
   tags: string[];
+  // A finished upload to attach as the item's photo; it replaces imageUrl
+  imageUpload?: string;
 };
 
 export type LinkPreview = {
@@ -102,6 +106,29 @@ export const newShareLink = (listId: string) =>
   ownerRequest<{ shareToken: string }>(`${listPath(listId)}/share`, {
     method: "POST",
   });
+
+// Uploads a resized photo and returns the key to save with the item as imageUpload
+export async function uploadImage(listId: string, image: Blob) {
+  const { key, url, fields } = await ownerRequest<{
+    key: string;
+    url: string;
+    fields: Record<string, string>;
+  }>(`${listPath(listId)}/images`, json("POST", { contentType: image.type }));
+
+  const form = new FormData();
+  for (const [name, value] of Object.entries(fields)) {
+    form.append(name, value);
+  }
+  // S3 requires the file to be the last field
+  form.append("file", image);
+
+  const response = await fetch(url, { method: "POST", body: form });
+  if (!response.ok) {
+    throw new ApiError(response.status, "Upload failed");
+  }
+
+  return key;
+}
 
 export const previewLink = (url: string) =>
   ownerRequest<LinkPreview>("/preview", json("POST", { url }));

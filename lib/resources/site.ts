@@ -22,6 +22,7 @@ export type Site = {
 export function createSite(
   stack: cdk.Stack,
   site: SiteDomain & { certificate: acm.ICertificate },
+  imagesBucket: s3.IBucket,
 ): Site {
   // Only readable by CloudFront
   const siteBucket = new s3.Bucket(stack, "SiteBucket", {
@@ -62,6 +63,18 @@ function handler(event) {
           eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
         },
       ],
+    },
+    // Item photos come from their own bucket. Only images/ is routed there, so unsaved
+    // uploads under pending/ can't be fetched.
+    additionalBehaviors: {
+      "images/*": {
+        origin: S3BucketOrigin.withOriginAccessControl(imagesBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        // nosniff matters here: files are only ever served as the image type they were saved with
+        responseHeadersPolicy:
+          cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+      },
     },
   });
 

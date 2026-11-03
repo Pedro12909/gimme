@@ -1,8 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FormSheet } from "@/components/form-sheet";
 import { Input } from "@/components/ui/input";
-import { ChevronRightIcon, PlusIcon, XIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  ImagePlusIcon,
+  Loader2Icon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react";
+import { toast } from "sonner";
 import { ItemThumbnail } from "@/components/item-thumbnail";
 import { TagInput } from "@/components/tag-input";
 import { Button } from "@/components/ui/button";
@@ -14,7 +21,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { previewLink, type ItemInput, type ListInput } from "@/lib/owner-api";
+import {
+  previewLink,
+  uploadImage,
+  type ItemInput,
+  type ListInput,
+} from "@/lib/owner-api";
+import { ImageReadError, resizeImage } from "@/lib/resize-image";
 import { safeHref, siteName } from "@/lib/links";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { cn } from "@/lib/utils";
@@ -134,12 +147,24 @@ const emptyItem: ItemInput = {
 type AutoField = "title" | "vendor" | "price";
 const AUTO_FIELDS: AutoField[] = ["title", "vendor", "price"];
 
+// Where the item's image comes from while the form is open
+type Photo =
+  // The saved image while the link is unchanged, otherwise the shop's image for the new link
+  | { kind: "fromLink" }
+  // The owner's previously uploaded photo, kept even if the link changes
+  | { kind: "saved" }
+  | { kind: "uploading"; preview: string }
+  | { kind: "uploaded"; preview: string; key: string }
+  | { kind: "removed" };
+
 export function ItemFormSheet({
   open,
   onOpenChange,
   heading,
   submitLabel,
+  listId,
   initial = emptyItem,
+  initialIsUpload = false,
   existingTags,
   submitting,
   onSave,
@@ -149,7 +174,11 @@ export function ItemFormSheet({
   onOpenChange: (open: boolean) => void;
   heading: string;
   submitLabel: string;
+  // Photos are uploaded to this list
+  listId: string;
   initial?: ItemInput;
+  // True when the saved image is a photo the owner uploaded rather than one from the shop
+  initialIsUpload?: boolean;
   // Tags already used in this list, offered as suggestions
   existingTags: string[];
   submitting: boolean;
@@ -180,8 +209,64 @@ export function ItemFormSheet({
   const previewFailed =
     urlValid && !urlUnchanged && debouncedUrl === url && preview.isError;
 
+  const [photo, setPhoto] = useState<Photo>({ kind: "fromLink" });
+  useEffect(() => {
+    if (open) setPhoto({ kind: initialIsUpload ? "saved" : "fromLink" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset when opening
+  }, [open]);
+
+  const previewUrl = "preview" in photo ? photo.preview : undefined;
+  useEffect(() => {
+    if (previewUrl) return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  const uploading = photo.kind === "uploading";
   // Editing without changing the link keeps the image saved with the item
-  const imageUrl = urlUnchanged ? initial.imageUrl : (fetched?.imageUrl ?? "");
+  const linkImageUrl = urlUnchanged
+    ? initial.imageUrl
+    : (fetched?.imageUrl ?? "");
+  const imageUrl =
+    photo.kind === "fromLink"
+      ? linkImageUrl
+      : photo.kind === "saved"
+        ? initial.imageUrl
+        : photo.kind === "removed"
+          ? ""
+          : photo.preview;
+
+  const fileInput = useRef<HTMLInputElement>(null);
+  const choosePhoto = async (file: File) => {
+    let image: Blob;
+    try {
+      image = await resizeImage(file);
+    } catch (err) {
+      toast.error(
+        err instanceof ImageReadError
+          ? err.message
+          : "Couldn't read that image.",
+      );
+      return;
+    }
+
+    const previous = photo;
+    const preview = URL.createObjectURL(image);
+    setPhoto({ kind: "uploading", preview });
+    // Only apply the result if nothing replaced this upload meanwhile (another photo, or closing)
+    const settle = (next: Photo) =>
+      setPhoto((current) =>
+        current.kind === "uploading" && current.preview === preview
+          ? next
+          : current,
+      );
+
+    try {
+      const key = await uploadImage(listId, image);
+      settle({ kind: "uploaded", preview, key });
+    } catch {
+      toast.error("Couldn't upload the photo. Try again.");
+      settle(previous);
+    }
+  };
 
   // Values last filled in by the preview: a field still holding one of these hasn't been
   // touched by the owner, so a newer preview may replace it
@@ -250,13 +335,15 @@ export function ItemFormSheet({
       title={heading}
       submitLabel={submitLabel}
       submitting={submitting}
-      canSubmit={urlValid && !alternativeErrors.some(Boolean)}
+      canSubmit={urlValid && !uploading && !alternativeErrors.some(Boolean)}
       onSubmit={() =>
         onSave({
           url,
           title: values.title.trim(),
           note: values.note.trim(),
-          imageUrl,
+          // The server sets the image link for an upload
+          imageUrl: photo.kind === "uploaded" ? "" : imageUrl,
+          imageUpload: photo.kind === "uploaded" ? photo.key : undefined,
           price: values.price.trim(),
           vendor: values.vendor.trim(),
           size: values.size.trim(),
@@ -304,14 +391,62 @@ export function ItemFormSheet({
               <Skeleton className="h-4 w-1/4" />
             </div>
           </div>
-        ) : imageUrl ? (
-          <ItemThumbnail src={imageUrl} />
         ) : previewFailed ? (
           <p id="item-url-preview" className="text-sm text-muted-foreground">
             Couldn't get details from this shop. Add a name below.
           </p>
         ) : null}
       </div>
+
+      {/* The shop's image fills this in; the owner can use their own photo instead */}
+      {!(previewing && photo.kind === "fromLink") && (
+        <div className="flex items-center gap-3">
+          {imageUrl && (
+            <ItemThumbnail
+              src={imageUrl}
+              className={cn(uploading && "opacity-50")}
+            />
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11"
+            disabled={uploading}
+            onClick={() => fileInput.current?.click()}
+          >
+            {uploading ? (
+              <Loader2Icon className="animate-spin" />
+            ) : (
+              <ImagePlusIcon />
+            )}
+            {uploading ? "Uploading…" : imageUrl ? "Change photo" : "Add photo"}
+          </Button>
+          {imageUrl && !uploading && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-lg"
+              className="size-11"
+              aria-label="Remove photo"
+              onClick={() => setPhoto({ kind: "removed" })}
+            >
+              <XIcon />
+            </Button>
+          )}
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              // Clear it so picking the same file again still fires a change
+              event.target.value = "";
+              if (file) void choosePhoto(file);
+            }}
+          />
+        </div>
+      )}
 
       <div className="grid gap-2">
         <Label htmlFor="item-title">Name (optional)</Label>

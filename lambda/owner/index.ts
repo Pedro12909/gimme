@@ -23,6 +23,7 @@ import {
   positionAfter,
 } from "../shared/item-order";
 import { MAX_ITEMS_PER_LIST, MAX_LISTS_PER_OWNER } from "../shared/limits";
+import { createUpload, deleteImages, publishUpload } from "./images";
 import { isCleared, readItemInput } from "./item-input";
 
 type Bindings = {
@@ -82,6 +83,15 @@ const checkText = (
   }
   return undefined;
 };
+
+// imageUpload names a pending upload to attach. Absent or "" means no new photo.
+const readImageUpload = (body: Record<string, unknown>) =>
+  typeof body.imageUpload === "string" && body.imageUpload !== ""
+    ? body.imageUpload
+    : undefined;
+
+const UPLOAD_NOT_FOUND =
+  "The photo didn't finish uploading. Try adding it again.";
 
 // Middleware
 app.use("*", async (ctx, next) => {
@@ -315,6 +325,7 @@ app.delete("/lists/:listId", async (ctx) => {
       }),
     );
   }
+  await deleteImages((itemsResult.Items ?? []).map((item) => item.imageKey));
 
   await documentClient.send(
     new DeleteCommand({
@@ -375,6 +386,13 @@ app.post("/lists/:listId/items", async (ctx) => {
     );
   }
 
+  // An uploaded photo replaces any image link sent with it
+  const upload = readImageUpload(body);
+  const image = upload && (await publishUpload(listId, upload, userId));
+  if (upload && !image) {
+    return ctx.json({ error: UPLOAD_NOT_FOUND }, 400);
+  }
+
   // Empty optional fields are left out rather than stored as ""
   const fields = Object.fromEntries(
     Object.entries(input.fields).filter(([, value]) => !isCleared(value)),
@@ -382,6 +400,7 @@ app.post("/lists/:listId/items", async (ctx) => {
 
   const item = {
     ...fields,
+    ...image,
     listId,
     itemId: crypto.randomUUID(),
     position: positionAfter(positionsResult.Items ?? []),
@@ -427,12 +446,45 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
     return ctx.json({ error: input.error }, 400);
   }
 
+  const existingResult = await documentClient.send(
+    new GetCommand({
+      TableName: itemsTableName,
+      Key: { listId, itemId },
+    }),
+  );
+  const existing = existingResult.Item;
+  if (!existing) {
+    return ctx.json({ error: "Not found" }, 404);
+  }
+
+  // imageKey is only ever set here, from an upload, so it always names a file this app owns
+  const fields: Record<string, unknown> = { ...input.fields };
+  let replacedImageKey: string | undefined;
+
+  const upload = readImageUpload(body);
+  if (upload) {
+    const image = await publishUpload(listId, upload, userId);
+    if (!image) {
+      return ctx.json({ error: UPLOAD_NOT_FOUND }, 400);
+    }
+    Object.assign(fields, image);
+    replacedImageKey = existing.imageKey;
+  } else if (
+    existing.imageKey &&
+    fields.imageUrl !== undefined &&
+    fields.imageUrl !== existing.imageUrl
+  ) {
+    // The uploaded photo was removed or swapped for a shop image
+    fields.imageKey = "";
+    replacedImageKey = existing.imageKey;
+  }
+
   const sets: string[] = [];
   const removes: string[] = [];
   const names: Record<string, string> = {};
   const values: Record<string, unknown> = {};
 
-  for (const [field, value] of Object.entries(input.fields)) {
+  for (const [field, value] of Object.entries(fields)) {
     // Attribute names go through placeholders, since words like "url" and "size" clash with DynamoDB reserved words
     names[`#${field}`] = field;
 
@@ -470,6 +522,8 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
       }),
     );
 
+    await deleteImages([replacedImageKey]);
+
     return ctx.json(result.Attributes);
   } catch (err) {
     if (err instanceof ConditionalCheckFailedException) {
@@ -499,14 +553,51 @@ app.delete("/lists/:listId/items/:itemId", async (ctx) => {
     return ctx.json({ error: "Not found" }, 404);
   }
 
-  await documentClient.send(
+  const deleted = await documentClient.send(
     new DeleteCommand({
       TableName: itemsTableName,
       Key: { listId, itemId },
+      ReturnValues: "ALL_OLD",
+    }),
+  );
+  await deleteImages([deleted.Attributes?.imageKey]);
+
+  return ctx.body(null, 204);
+});
+
+// Returns a form the browser posts a resized photo to; saving the item then attaches it
+app.post("/lists/:listId/images", async (ctx) => {
+  const listId = ctx.req.param("listId");
+  const userId = ctx.get("userId");
+
+  const listResult = await documentClient.send(
+    new GetCommand({
+      TableName: listsTableName,
+      Key: { listId },
     }),
   );
 
-  return ctx.body(null, 204);
+  if (!listResult.Item) {
+    return ctx.json({ error: "Not found" }, 404);
+  }
+  if (listResult.Item.ownerId !== userId) {
+    return ctx.json({ error: "Not found" }, 404);
+  }
+
+  const body = await readBody(ctx.req);
+  if (!body) {
+    return ctx.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const upload = await createUpload(listId, body.contentType);
+  if (!upload) {
+    return ctx.json(
+      { error: "contentType must be image/webp or image/jpeg" },
+      400,
+    );
+  }
+
+  return ctx.json(upload, 201);
 });
 
 app.post("/lists/:listId/share", async (ctx) => {

@@ -9,6 +9,7 @@ import {
   HttpMethod,
 } from "aws-cdk-lib/aws-apigatewayv2";
 import { aws_apigatewayv2_authorizers } from "aws-cdk-lib";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import { Auth } from "./auth";
 import { Tables } from "./tables";
 
@@ -20,7 +21,15 @@ export function createApi(
     auth,
     tables,
     allowedOrigins,
-  }: { auth: Auth; tables: Tables; allowedOrigins: string[] },
+    imagesBucket,
+    siteUrl,
+  }: {
+    auth: Auth;
+    tables: Tables;
+    allowedOrigins: string[];
+    imagesBucket: s3.IBucket;
+    siteUrl: string;
+  },
 ) {
   const { listsTable, itemsTable, claimsTable } = tables;
 
@@ -31,10 +40,20 @@ export function createApi(
     environment: {
       LISTS_TABLE_NAME: listsTable.tableName,
       ITEMS_TABLE_NAME: itemsTable.tableName,
+      IMAGES_BUCKET_NAME: imagesBucket.bucketName,
+      IMAGES_BASE_URL: siteUrl,
     },
+    // The presigned POST helper isn't part of the Lambda runtime's SDK, so bundle the whole
+    // SDK to keep its packages on matching versions
+    bundling: { externalModules: [] },
   });
   listsTable.grantReadWriteData(ownerApiFn);
   itemsTable.grantReadWriteData(ownerApiFn);
+  // Signs upload forms for pending/, copies uploads to images/, deletes both.
+  // Reading pending/ also lists the bucket, so a missing upload is a 404 rather than a 403.
+  imagesBucket.grantPut(ownerApiFn);
+  imagesBucket.grantRead(ownerApiFn, "pending/*");
+  imagesBucket.grantDelete(ownerApiFn);
 
   const guestApiFn = new NodejsFunction(stack, "GuestApiFn", {
     entry: "lambda/guest/index.ts",

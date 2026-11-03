@@ -9,6 +9,7 @@ Live at [gimme.rtemis.dev](https://gimme.rtemis.dev) (invite-only for now).
 ## Features
 
 - **Add from any shop.** Paste a product link and gimme fills in the name, photo, shop and price. You can add sizes, notes, tags and links to other shops.
+- **Your own photos.** Upload a photo for any item. It's shrunk on your device first, so any phone photo works.
 - **Your order.** Drag items to rank them, or sort and filter by price, shop or tag.
 - **One share link.** Guests open it in the browser, with no account and nothing to install. If a link ends up with the wrong people, replace it with a new one.
 - **Private claims.** Guests claim items, optionally with their name, and can unclaim later from the same browser. The list owner's view never shows claims, and this is enforced on the server.
@@ -37,6 +38,9 @@ flowchart LR
 
   Owner --> Lists[("Lists")]
   Owner --> Items[("Items")]
+  Owner --> Images[("Images bucket")]
+  Browser -- "photo uploads" --> Images
+  CF -- "/images/*" --> Images
   Guest -. read .-> Lists
   Guest -. read .-> Items
   Guest --> Claims[("Claims")]
@@ -49,12 +53,16 @@ flowchart LR
 | Part                    | What it is                                                                                             |
 | ----------------------- | ------------------------------------------------------------------------------------------------------ |
 | `frontend/`             | React 19 + Vite + Tailwind CSS 4 + shadcn/ui. Data fetching with TanStack Query, sign-in with Amplify. |
-| `lambda/owner`          | Owner API (Hono): lists, items, ordering, share links.                                                 |
+| `lambda/owner`          | Owner API (Hono): lists, items, ordering, share links, photo uploads.                                  |
 | `lambda/guest`          | Guest API (Hono): read a shared list, claim, unclaim.                                                  |
 | `lambda/preview`        | Fetches a product page and pulls out its name, image, shop and price. It has no database access.       |
 | `lambda/claims-cleanup` | Removes claims for deleted items. Failures go to an SQS dead-letter queue.                             |
 | `lambda/auth-emails`    | Rewrites Cognito's emails (sign-in codes, invites) in gimme's voice.                                   |
 | `lib/`                  | AWS CDK infrastructure: DynamoDB tables, API, Cognito, site hosting.                                   |
+
+Each owner can have up to 10 lists, with up to 50 items in each.
+
+Uploaded photos go straight from the browser to a private S3 bucket under `pending/`, using a short-lived form from the owner Lambda that only accepts WebP or JPEG files up to 1 MB. Saving the item copies the photo to `images/`, which is the only part CloudFront serves. Photos not saved to an item expire after a day. Deleting an item or list deletes its photos.
 
 Owners sign in with an emailed one-time code (or a password). Sign-ups are turned off, so accounts are created by invitation.
 

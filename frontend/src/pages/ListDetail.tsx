@@ -396,6 +396,7 @@ export default function ListDetail() {
         onOpenChange={setAdding}
         heading="Add item"
         submitLabel="Add"
+        listId={listId}
         existingTags={tags}
         submitting={add.isPending}
         onSave={(input) => add.mutate(input)}
@@ -406,7 +407,9 @@ export default function ListDetail() {
         onOpenChange={(open) => !open && setEditing(undefined)}
         heading="Edit item"
         submitLabel="Save"
+        listId={listId}
         initial={editing && toInput(editing)}
+        initialIsUpload={Boolean(editing?.imageKey)}
         existingTags={tags}
         submitting={update.isPending}
         onSave={(input) =>
