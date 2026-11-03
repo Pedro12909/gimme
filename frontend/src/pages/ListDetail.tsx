@@ -28,6 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/http";
 import { sortByPosition } from "@/lib/item-order";
+import { MAX_ITEMS_PER_LIST } from "@/lib/limits";
 import {
   applyView,
   collectTags,
@@ -122,7 +123,11 @@ export default function ListDetail() {
       setAdding(false);
       refresh();
     },
-    onError: saveFailed,
+    onError: (err) =>
+      // Hitting the cap isn't worth retrying, so say why instead
+      err instanceof ApiError && err.status === 409
+        ? toast.error(err.message)
+        : saveFailed(),
   });
 
   const update = useMutation({
@@ -252,6 +257,7 @@ export default function ListDetail() {
   }
 
   const empty = items.length === 0;
+  const full = items.length >= MAX_ITEMS_PER_LIST;
   const showControls = items.length >= MIN_ITEMS_FOR_CONTROLS;
   // Dragging only makes sense in the owner's own order, with nothing hidden
   const sortable = view.sort === "ranking" && !isFiltered(view);
@@ -322,7 +328,12 @@ export default function ListDetail() {
         <>
           {/* Sharing only appears once there's something worth sharing */}
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <Button size="lg" className="h-11" onClick={() => setAdding(true)}>
+            <Button
+              size="lg"
+              className="h-11"
+              disabled={full}
+              onClick={() => setAdding(true)}
+            >
               <PlusIcon />
               Add item
             </Button>
@@ -336,6 +347,12 @@ export default function ListDetail() {
               Share
             </Button>
           </div>
+          {full && (
+            <p className="mt-2 text-sm text-muted-foreground text-pretty">
+              This list is full at {MAX_ITEMS_PER_LIST} items. Delete one to add
+              something new.
+            </p>
+          )}
 
           {showControls && (
             <div className="mt-8">

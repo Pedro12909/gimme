@@ -10,6 +10,8 @@ import { ListFormSheet } from "@/components/owner-forms";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Wordmark } from "@/components/wordmark";
+import { ApiError } from "@/lib/http";
+import { MAX_LISTS_PER_OWNER } from "@/lib/limits";
 import { createList, getLists } from "@/lib/owner-api";
 
 export default function Lists() {
@@ -35,12 +37,19 @@ export default function Lists() {
       // Straight into the new list, where the next step is adding items
       navigate(`/lists/${list.listId}`);
     },
-    onError: () => toast.error("Couldn't create the list. Try again."),
+    onError: (err) =>
+      toast.error(
+        // Hitting the cap isn't worth retrying, so say why instead
+        err instanceof ApiError && err.status === 409
+          ? err.message
+          : "Couldn't create the list. Try again.",
+      ),
   });
 
   const sorted = [...(lists ?? [])].sort((a, b) =>
     b.createdAt.localeCompare(a.createdAt),
   );
+  const atLimit = sorted.length >= MAX_LISTS_PER_OWNER;
 
   return (
     <PageShell
@@ -95,11 +104,21 @@ export default function Lists() {
             <h1 className="text-2xl font-semibold tracking-tight">
               Your lists
             </h1>
-            <Button size="lg" onClick={() => setCreating(true)}>
+            <Button
+              size="lg"
+              disabled={atLimit}
+              onClick={() => setCreating(true)}
+            >
               <PlusIcon />
               New list
             </Button>
           </div>
+          {atLimit && (
+            <p className="mt-2 text-sm text-muted-foreground text-pretty">
+              You've reached {MAX_LISTS_PER_OWNER} lists. Delete one to make a
+              new list.
+            </p>
+          )}
 
           <ul className="mt-6 divide-y border-y">
             {sorted.map((list) => (

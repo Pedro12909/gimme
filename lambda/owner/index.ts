@@ -22,6 +22,7 @@ import {
   compareItems,
   positionAfter,
 } from "../shared/item-order";
+import { MAX_ITEMS_PER_LIST, MAX_LISTS_PER_OWNER } from "../shared/limits";
 import { isCleared, readItemInput } from "./item-input";
 
 type Bindings = {
@@ -109,10 +110,28 @@ app.post("/lists", async (ctx) => {
     return ctx.json({ error }, 400);
   }
 
+  const ownerId = ctx.get("userId");
+
+  // The index can lag a moment behind, so two creates at the same instant could both pass.
+  // That's an acceptable overshoot for a cap that exists to bound storage.
+  const countResult = await documentClient.send(
+    new QueryCommand({
+      TableName: listsTableName,
+      IndexName: "OwnerIndex",
+      KeyConditionExpression: "ownerId = :ownerId",
+      ExpressionAttributeValues: { ":ownerId": ownerId },
+      Select: "COUNT",
+    }),
+  );
+  if ((countResult.Count ?? 0) >= MAX_LISTS_PER_OWNER) {
+    return ctx.json(
+      { error: `You can have at most ${MAX_LISTS_PER_OWNER} lists` },
+      409,
+    );
+  }
+
   const listId = crypto.randomUUID();
   const shareToken = crypto.randomUUID();
-
-  const ownerId = ctx.get("userId");
 
   const list = {
     listId,
@@ -347,6 +366,14 @@ app.post("/lists/:listId/items", async (ctx) => {
       ExpressionAttributeValues: { ":listId": listId },
     }),
   );
+
+  // The positions query already returns every item, so it doubles as the count
+  if ((positionsResult.Items ?? []).length >= MAX_ITEMS_PER_LIST) {
+    return ctx.json(
+      { error: `A list can have at most ${MAX_ITEMS_PER_LIST} items` },
+      409,
+    );
+  }
 
   // Empty optional fields are left out rather than stored as ""
   const fields = Object.fromEntries(
