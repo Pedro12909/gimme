@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import { PageSkeleton } from "@/components/skeleton";
@@ -28,11 +28,12 @@ const router = createBrowserRouter([
       {
         lazy: page(() => import("@/pages/OwnerLayout")),
         children: [
-          { path: "/lists", lazy: page(() => import("@/pages/Lists")) },
-          {
-            path: "/lists/:listId",
-            lazy: page(() => import("@/pages/ListDetail")),
-          },
+          // The lists screen is gone: the default list opens at / instead
+          { path: "/lists", element: <Navigate to="/" replace /> },
+          { path: "/lists/:listId", lazy: page(() => import("@/pages/Home")) },
+          { path: "/all", lazy: page(() => import("@/pages/Home")) },
+          { path: "/want", lazy: page(() => import("@/pages/Home")) },
+          { path: "/got", lazy: page(() => import("@/pages/Home")) },
           {
             path: "/lists/:listId/settings",
             lazy: page(() => import("@/pages/ListSettings")),

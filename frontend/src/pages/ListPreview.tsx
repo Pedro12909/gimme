@@ -16,6 +16,7 @@ import {
 } from "@/components/skeleton";
 import type { SharedItem } from "@/lib/guest-api";
 import { getList, getMe } from "@/lib/owner-api";
+import { listPath } from "@/lib/owner-data";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { useListView } from "@/lib/use-list-view";
 
@@ -41,7 +42,9 @@ export default function ListPreview() {
 
   const header = (
     <>
-      <BackLink to={`/lists/${listId}`}>Back to your list</BackLink>
+      <BackLink to={listPath(listId, list?.isDefault)}>
+        Back to your list
+      </BackLink>
       <WhoseList ownerName={me?.displayName} />
     </>
   );

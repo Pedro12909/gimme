@@ -51,7 +51,7 @@ export default function SignIn() {
     return () => clearTimeout(timer);
   }, [resent]);
 
-  const destination = state?.from ?? "/lists";
+  const destination = state?.from ?? "/";
 
   if (isPending) return <PageSkeleton />;
   if (user) return <Navigate to={destination} replace />;

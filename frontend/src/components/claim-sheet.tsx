@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { IconButton } from "@/components/icon";
 import { Modal } from "@/components/modal";
 import { TileSquare } from "@/components/tile";
 import { ApiError, claimItem, type SharedItem } from "@/lib/guest-api";
@@ -60,7 +61,7 @@ export function ClaimSheet({
       open={item !== undefined}
       onClose={close}
       labelledBy={headingId}
-      className="inset-x-0 top-auto bottom-0 max-h-[90svh] w-full max-w-none rounded-t-lg bg-ground shadow-[0_-8px_32px_rgba(0,0,0,0.12)] sm:inset-y-0 sm:right-0 sm:left-auto sm:h-full sm:max-h-none sm:w-[440px] sm:rounded-none sm:border-l sm:border-hairline"
+      className="inset-x-0 top-auto bottom-0 max-h-[90svh] w-full max-w-none rounded-t-lg bg-ground shadow-sheet sm:inset-y-0 sm:right-0 sm:left-auto sm:h-full sm:max-h-none sm:w-[440px] sm:rounded-none sm:border-l sm:border-hairline"
     >
       {item && (
         <div className="px-4 pt-6 pb-[max(32px,env(safe-area-inset-bottom))] sm:px-7 sm:pt-7">
@@ -71,11 +72,8 @@ export function ClaimSheet({
           )}
 
           <div className="flex items-center gap-3.5">
-            <TileSquare
-              imageUrl={item.imageUrl}
-              className="w-16 shrink-0 border border-hairline"
-            />
-            <div className="min-w-0">
+            <TileSquare imageUrl={item.imageUrl} className="w-16 shrink-0" />
+            <div className="min-w-0 flex-1">
               <h2
                 id={headingId}
                 className="line-clamp-3 text-lg leading-tight font-medium"
@@ -84,6 +82,13 @@ export function ClaimSheet({
               </h2>
               {meta && <p className="mt-0.5 text-[13px] text-muted">{meta}</p>}
             </div>
+            <IconButton
+              icon="close"
+              label="Cancel"
+              className="-mt-1 -mr-2 self-start"
+              onClick={close}
+              disabled={claim.isPending}
+            />
           </div>
 
           {gone ? (
@@ -134,7 +139,7 @@ export function ClaimSheet({
                 undo it later on this device.
               </p>
               {claim.isError && (
-                <p role="alert" className="mt-3 text-[13px] font-medium">
+                <p role="alert" className="mt-3 text-[13px] text-danger">
                   Couldn't claim it. Try again.
                 </p>
               )}
@@ -144,13 +149,6 @@ export function ClaimSheet({
                 disabled={claim.isPending}
               >
                 {claim.isPending ? "One moment…" : "I'll get this"}
-              </button>
-              <button
-                type="button"
-                className="action mt-2 w-full justify-center text-[15px]"
-                onClick={close}
-              >
-                Cancel
               </button>
             </form>
           )}

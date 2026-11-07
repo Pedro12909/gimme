@@ -18,6 +18,7 @@ import {
 } from "@/lib/item-view";
 import { safeHref, siteName } from "@/lib/links";
 import { useJustChanged } from "@/lib/use-just-changed";
+import { cn } from "@/lib/utils";
 
 // What a guest sees of a list. Used by the shared link itself and by the owner's preview,
 // which passes items with every claim left out.
@@ -41,8 +42,8 @@ export function WhoseList({ ownerName }: { ownerName?: string }) {
   );
 }
 
-// Why an item can't be claimed, shown on its tile
-function veilText(item: SharedItem, ownerName: string | undefined) {
+// Why an item can't be claimed, in place of its shop and price
+function takenText(item: SharedItem, ownerName: string | undefined) {
   if (item.got) return ownerName ? `${ownerName} has it` : "They have it";
   if (item.claimed) {
     return item.claimerName ? `Taken by ${item.claimerName}` : "Taken";
@@ -60,8 +61,8 @@ function GuestTile({
   ownerName?: string;
 }) {
   const mine = item.claimed && actions.isMine(item);
-  // Their own claim isn't greyed out: it's the one they still have to go and buy
-  const veil = mine ? undefined : veilText(item, ownerName);
+  // Their own claim isn't faded: it's the one they still have to go and buy
+  const taken = mine ? undefined : takenText(item, ownerName);
   const href = safeHref(item.url);
   const otherShops = (item.alternatives ?? [])
     .map((link) => ({ link, href: safeHref(link) }))
@@ -69,16 +70,22 @@ function GuestTile({
   // Claim and Undo swap places after each tap, so a double tap is ignored for a moment
   // rather than undoing what the first tap did
   const tooSoon = useJustChanged(`${item.claimed}:${mine}`);
-  const square = <TileSquare imageUrl={item.imageUrl} veil={veil} />;
+  const square = (
+    <TileSquare
+      imageUrl={item.imageUrl}
+      badge={taken ? "got" : item.starred ? "want" : undefined}
+      className="hover:border-hairline-strong"
+    />
+  );
 
   return (
-    <li>
+    <li className={cn(taken && "opacity-45")}>
       {href ? (
         <a
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`Open ${itemLabel(item)} in the shop`}
+          aria-label={`Open ${itemLabel(item)} in the shop${taken ? ` (${taken})` : item.starred ? " (wanted most)" : ""}`}
           className="block"
         >
           {square}
@@ -86,7 +93,7 @@ function GuestTile({
       ) : (
         square
       )}
-      <ItemCaption item={item} muted={veil !== undefined}>
+      <ItemCaption item={item} meta={taken}>
         {item.note && (
           <p className="mt-1 text-xs whitespace-pre-line text-muted sm:text-[13px]">
             {item.note}
@@ -102,7 +109,7 @@ function GuestTile({
                   href={shop.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-accent underline-offset-3 hover:underline"
+                  className="text-ink underline underline-offset-3"
                 >
                   {siteName(shop.link)}
                 </a>

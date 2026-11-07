@@ -2,15 +2,16 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* The gimme design (design/SPEC.md), based on Things 3: a calm white room, one blue for
-   action, one yellow star for "Want most". Only the spec's colors and radii exist, so
-   Tailwind's own palette, radii and shadows are removed. */
+/* The gimme design (design/home-redesign.md, design system v2): monochrome. Ink is the
+   accent, the Want-most star is ink, status colours are grey; only danger keeps colour.
+   Only these tokens exist, so Tailwind's own palette, radii and shadows are removed. */
 @theme {
   --color-*: initial;
   --radius-*: initial;
   --shadow-*: initial;
   --radius-sm: 8px;
   --radius-md: 10px;
+  --radius-card: 12px;
   --radius-lg: 14px;
   --radius-full: 9999px;
   /* The device's own font: SF Pro on Apple, Segoe UI on Windows, Roboto on Android */
@@ -20,70 +21,101 @@
 }
 
 @theme inline {
-  --color-ground: var(--ground);
-  --color-ink: var(--ink);
-  --color-muted: var(--muted);
-  --color-hairline: var(--hairline);
-  --color-field: var(--field);
-  --color-tile: var(--tile);
+  --color-ground: var(--bg);
   --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-selected: var(--selected);
+  --color-photo: var(--photo);
+  --color-ink: var(--fg);
+  --color-ink-2: var(--fg-2);
+  --color-muted: var(--muted);
+  --color-meta: var(--meta);
+  --color-hairline: var(--border);
+  --color-hairline-subtle: var(--border-subtle);
+  --color-hairline-strong: var(--border-strong);
   --color-accent: var(--accent);
   --color-accent-on: var(--accent-on);
+  --color-accent-hover: var(--accent-hover);
   --color-star: var(--star);
   --color-danger: var(--danger);
-  --color-veil: var(--veil);
-  /* Product photos are shot on white, so they keep a white tile in both themes */
-  --color-photo: #ffffff;
+  --color-scrim: var(--scrim);
+  /* Older names, kept so pages read the same tokens */
+  --color-field: var(--surface);
+  --color-tile: var(--surface-2);
+  --shadow-menu: var(--elev-menu);
+  --shadow-sheet: var(--elev-sheet);
 }
 
+/* Light, and dark under .dark: index.html sets the class before first paint from the
+   stored theme choice or the device, so the theme switch keeps working */
 :root {
   color-scheme: light;
-  --ground: #ffffff;
-  --surface: #f5f6f8;
-  --ink: #1d1d1f;
+  --bg: #ffffff;
+  --surface: #f4f4f5;
+  --surface-2: #ebebed;
+  --selected: #e4e4e7;
+  /* Product photos are shot on white, so they keep a white ground in both themes */
+  --photo: #ffffff;
+  --fg: #1d1d1f;
+  --fg-2: #3a3a3c;
   --muted: #6e6e73;
-  --hairline: #ececec;
-  --field: #f5f6f8;
-  --tile: #ececec;
-  /* Loading placeholders, a touch darker than an empty tile so they read on white */
-  --skeleton: #e4e5e8;
-  --skeleton-shine: #f4f5f7;
-  /* Things Blue (#4f97ff) darkened so blue text and white-on-blue pass 4.5:1 */
-  --accent: #276bd9;
+  --meta: #8e8e93;
+  --border: #ececec;
+  --border-subtle: #f0f0f2;
+  --border-strong: #d1d1d6;
+  --accent: #1d1d1f;
   --accent-on: #ffffff;
-  --accent-hover: #1f5ec4;
-  --star: #ffd60a;
+  --accent-hover: #000000;
+  --accent-active: #3a3a3c;
+  --accent-tint: var(--selected);
+  --star: var(--fg);
+  --success: #3a3a3c;
+  --warn: #3a3a3c;
   --danger: #d70015;
-  --veil: rgba(255, 255, 255, 0.72);
   --scrim: rgba(0, 0, 0, 0.2);
+  --elev-menu: 0 12px 32px rgba(0, 0, 0, 0.1);
+  --elev-sheet: 0 -8px 32px rgba(0, 0, 0, 0.12);
+  --sidebar-width: 232px;
+  --panel-width: 320px;
+  --tile-min: 150px;
+  --row-nav: 38px;
+  /* Loading placeholders, a touch darker than a surface so they read on white */
+  --skeleton: #e4e4e7;
+  --skeleton-shine: #f4f4f5;
 }
 
 .dark {
   color-scheme: dark;
-  --ground: #1c1c1e;
+  --bg: #1c1c1e;
   --surface: #2c2c2e;
-  --ink: #f2f2f7;
+  --surface-2: #3a3a3c;
+  --selected: #48484a;
+  --fg: #f2f2f7;
+  --fg-2: #d1d1d6;
   --muted: #98989f;
-  --hairline: #38383a;
-  --field: #2c2c2e;
-  --tile: #3a3a3c;
+  --meta: #636366;
+  --border: #38383a;
+  --border-subtle: #2f2f31;
+  --border-strong: #545458;
+  --accent: #f2f2f7;
+  --accent-on: #1c1c1e;
+  --accent-hover: #ffffff;
+  --accent-active: #d1d1d6;
+  --success: #d1d1d6;
+  --warn: #d1d1d6;
+  --danger: #ff6961;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --elev-menu: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --elev-sheet: 0 -8px 32px rgba(0, 0, 0, 0.5);
   --skeleton: #333336;
   --skeleton-shine: #48484b;
-  /* Things Blue as-is; text on it is near-black, since white on it is only 2.9:1 */
-  --accent: #4f97ff;
-  --accent-on: #1c1c1e;
-  --accent-hover: #6aa8ff;
-  --star: #ffd60a;
-  --danger: #ff6961;
-  --veil: rgba(28, 28, 30, 0.72);
-  --scrim: rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
   html {
     font-family: var(--font-sans);
-    background: var(--ground);
-    color: var(--ink);
+    background: var(--bg);
+    color: var(--fg);
     -webkit-text-size-adjust: 100%;
   }
 
@@ -97,7 +129,7 @@
   }
 
   :focus-visible {
-    outline: 3px solid var(--accent);
+    outline: 2px solid var(--fg);
     outline-offset: 2px;
   }
 
@@ -142,12 +174,12 @@
     font-size: 28px;
     line-height: 1.2;
     font-weight: 700;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.01em;
     overflow-wrap: anywhere;
   }
-  @media (width >= 40rem) {
+  @media (width >= 48rem) {
     .page-title {
-      font-size: 36px;
+      font-size: 34px;
       line-height: 1.15;
     }
   }
@@ -160,17 +192,12 @@
   }
 
   .wordmark {
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-  @media (width >= 40rem) {
-    .wordmark {
-      font-size: 17px;
-    }
+    letter-spacing: -0.03em;
   }
 
-  /* Every secondary action is blue text (Things' text button), tall enough to tap */
+  /* A text button, in ink, tall enough to tap */
   .action {
     display: inline-flex;
     align-items: center;
@@ -190,25 +217,30 @@
   }
   /* A select laid invisibly over its own label ("Sort: My order"), so the device's picker opens */
   .action:has(select:focus-visible) {
-    outline: 3px solid var(--accent);
+    outline: 2px solid var(--fg);
     outline-offset: 2px;
   }
 
-  /* The one filled control: a form's submit, the screen's primary action */
+  /* The one filled control: a form's submit, the screen's primary action. Ink. */
   .submit {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     min-height: 48px;
     padding: 0 24px;
     border-radius: var(--radius-md);
     background: var(--accent);
     color: var(--accent-on);
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
   }
   .submit:hover:not(:disabled) {
     background: var(--accent-hover);
+  }
+  .submit:active:not(:disabled) {
+    background: var(--accent-active);
   }
   .submit:disabled {
     opacity: 0.5;
@@ -221,16 +253,15 @@
     min-height: 48px;
     padding: 12px 14px;
     font-size: 16px;
-    color: var(--ink);
-    background: var(--field);
+    color: var(--fg);
+    background: var(--surface);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     appearance: none;
   }
   .field:focus {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
+    border-color: var(--border-strong);
   }
   .field[aria-invalid="true"] {
     border-color: var(--danger);
@@ -246,6 +277,97 @@
     gap: 6px;
     font-size: 13px;
     color: var(--muted);
+  }
+}
+
+@layer components {
+  /* 40px square, transparent, --fg-2 icon; 44px where fingers tap */
+  .icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    color: var(--fg-2);
+    cursor: pointer;
+  }
+  .icon-button:hover:not(:disabled),
+  .icon-button[aria-expanded="true"] {
+    background: var(--surface);
+  }
+  .icon-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .icon-button.small {
+    width: 32px;
+    height: 32px;
+  }
+  .in-sidebar .icon-button:hover:not(:disabled),
+  .in-sidebar .icon-button[aria-expanded="true"] {
+    background: var(--surface-2);
+  }
+  @media (pointer: coarse) {
+    .icon-button,
+    .icon-button.small {
+      width: 44px;
+      height: 44px;
+    }
+  }
+
+  .menu {
+    min-width: 200px;
+    max-width: min(320px, calc(100vw - 32px));
+    padding: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--elev-menu);
+    font-size: 14px;
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    text-align: left;
+    cursor: pointer;
+  }
+  .menu-item:hover:not(:disabled),
+  .menu-item:focus-visible {
+    background: var(--surface);
+    outline: none;
+  }
+  .menu-item[aria-checked="true"] {
+    font-weight: 600;
+  }
+  .menu-item:disabled {
+    color: var(--muted);
+    cursor: default;
+  }
+
+  /* A row in the sidebar: views, lists, the account */
+  .nav-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: var(--row-nav);
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    color: var(--fg);
+  }
+  .nav-row:hover {
+    background: var(--surface-2);
+  }
+  .nav-row[aria-current="page"] {
+    background: var(--selected);
+    font-weight: 600;
   }
 }
 

@@ -1,4 +1,4 @@
-import { Link, NavLink } from "react-router";
+import { Link } from "react-router";
 import { setThemeChoice, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -78,30 +78,7 @@ export function Wordmark({ to = "/" }: { to?: string }) {
   );
 }
 
-const navLink = ({ isActive }: { isActive: boolean }) =>
-  cn(
-    "flex min-h-11 items-center underline-offset-3 hover:underline",
-    isActive && "underline",
-  );
-
-// Signed-in pages: the wordmark, then Lists and Account
-export function OwnerHeader() {
-  return (
-    <>
-      <Wordmark to="/lists" />
-      <nav className="flex gap-6">
-        <NavLink to="/lists" end className={navLink}>
-          Lists
-        </NavLink>
-        <NavLink to="/account" className={navLink}>
-          Account
-        </NavLink>
-      </nav>
-    </>
-  );
-}
-
-// "← Lists": the only glyph in the app
+// "← Back to your list": the only arrow in the app
 export function BackLink({ to, children }: { to: string; children: string }) {
   return (
     <Link

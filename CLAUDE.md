@@ -14,17 +14,21 @@ Wishlist web app at https://gimme.rtemis.dev. Owners (invite-only Cognito accoun
 - The owner Lambda must never get access to the Claims table. Claim privacy is enforced by IAM.
 - Guests are identified only by the share token in the path, and never send a listId.
 - Only a hash of the claim secret is stored. The secret lives in the guest's localStorage.
+- Items are never moved between lists, only copied (the copy is unclaimed). A move would silently undo a guest's claim, and the owner can't see claims. A copied uploaded photo gets its own S3 key, because deleting an item deletes its photo.
+- Every owner has at least one list, and exactly one has `isDefault: true` (Lists table). `ensureDefaultList` in the owner Lambda makes the first list and fixes up a missing default. Changing the default is one transaction, and deleting the last list is refused (409 `LAST_LIST`).
 
 ## UI rules
 
-All frontend work follows **design/SPEC.md** (a Things 3–based look that replaced the earlier "Shelf" design). Read it before changing any UI. The mockups in `design/mockups/` still show Shelf: use them for layout and copy only, not colours or type. The non-negotiables:
+All frontend work follows **design/home-redesign.md** (direction C, design system "gimme" v2). For anything it doesn't cover, use **design/SPEC.md**. Read them before changing any UI. The mockups in `design/mockups/` show the old Shelf look: use them for copy only. The non-negotiables:
 
-- Calm white page, flat: no gradients or card shadows; only bottom sheets get a soft shadow. Tokens, colours and radii come from the spec only (`index.css`); no stock shadcn grays.
-- Radii: 10px (`rounded-md`) for buttons, fields, tiles and panels; 8px (`rounded-sm`) for small bits; 14px (`rounded-lg`) for bottom sheet tops.
-- The device's system font, no web font. Sentence-case page titles (`.page-title`), nothing uppercase or condensed.
-- One blue accent for action, a yellow ★ only for "Want most", danger red for destructive actions and errors. Nothing else gets colour.
-- One primary action per screen is a filled blue `.submit` button. Every other action is blue `.action` text, underlined on hover only (quiet ones such as Undo can be muted). No icon library; use words.
-- Fields: grey fill, no border at rest. Don't put them on a grey surface or they disappear; panels and sheets use the page colour.
-- Left-aligned layouts. Square product tiles (white with a hairline edge for photos) in a spaced grid, not edge to edge. Item state is shown on the tile.
+- One screen for owners: sidebar (views, lists, account) + the list + the item panel (a bottom sheet on phones). The default list opens at `/`; there's no lists screen.
+- Monochrome. Ink (`--accent`) is the accent and the Want-most star; status colours are grey. Only `danger` has colour, and only for errors and the confirm step of a delete. No blue or yellow anywhere.
+- Flat white page: no gradients or card shadows. Only menus (`--elev-menu`) and sheets (`--elev-sheet`) get a shadow. Tokens, colours and radii come from `index.css` only; no stock shadcn grays.
+- Radii: 8px (`rounded-sm`) small bits, 10px (`rounded-md`) buttons and fields, 12px (`rounded-card`) tiles, menus and the search box, 14px (`rounded-lg`) sheet tops.
+- The device's system font, no web font. Sentence-case titles (`.page-title`), nothing uppercase or condensed.
+- Icons come only from `components/icon.tsx` (no icon library). Icon buttons (`IconButton`) always have `aria-label` and a tooltip. Options live in menus (`components/menu.tsx`), not rows of text buttons. One filled ink `.submit` per screen at most.
+- Deleting is two steps in place (`useTwoStep`: "Remove?" in danger red, a second press within 4s). No modals for confirming.
+- Item edits save themselves (debounced, flushed on blur and close), with a quiet "Saved". There's no Save button in the panel.
+- Square tiles on a white photo ground with a hairline edge. State is shown as a badge, and Got it / Taken also fade the tile.
 - Loading uses the shimmering skeletons in `components/skeleton.tsx`, shaped like the content. Feedback is quiet text in place, not toasts.
-- Simple: no flashy buttons, badges or labels; the shortest UX path. If a pattern looks like a default AI-generated UI, don't use it.
+- Simple: the shortest UX path. If a pattern looks like a default AI-generated UI, don't use it.

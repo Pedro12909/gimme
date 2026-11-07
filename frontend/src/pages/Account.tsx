@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AppShell } from "@/components/app-shell";
 import { FieldBones, Loading } from "@/components/skeleton";
-import { OwnerHeader, PageShell } from "@/components/page-shell";
-import { signOut } from "@/lib/auth";
 import { getMe, updateMe, type Me } from "@/lib/owner-api";
 import { setThemeChoice, useTheme, type ThemeChoice } from "@/lib/theme";
-import { authQueryKey, useAuth } from "@/lib/use-auth";
+import { useAuth } from "@/lib/use-auth";
+import { useDocumentTitle } from "@/lib/use-document-title";
+import { useSignOut } from "@/lib/use-sign-out";
 import { cn } from "@/lib/utils";
 
 // Limit matches the owner Lambda's validation
@@ -77,26 +77,16 @@ function NameForm({ me }: { me: Me }) {
 
 export default function Account() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { choice: theme } = useTheme();
   const { data: me, error } = useQuery({ queryKey: ["me"], queryFn: getMe });
-
-  const handleSignOut = async () => {
-    await signOut();
-    // Leave the signed-in pages first, or the auth guard would bounce to /sign-in instead
-    navigate("/", { replace: true });
-    // clear() alone drops the cache without telling mounted components, so the signed-in
-    // user stayed on screen until a refresh. Setting it to null notifies them.
-    queryClient.clear();
-    queryClient.setQueryData(authQueryKey, null);
-  };
+  const handleSignOut = useSignOut();
+  useDocumentTitle("Settings");
 
   return (
-    <PageShell header={<OwnerHeader />}>
-      <h1 className="page-title">Account</h1>
+    <AppShell current={{ kind: "account" }}>
+      <h1 className="page-title">Settings</h1>
 
-      <div className="mt-8 flex flex-col gap-10">
+      <div className="flex flex-col gap-10">
         {error ? (
           <p className="text-muted">Couldn't load your name.</p>
         ) : me ? (
@@ -143,6 +133,6 @@ export default function Account() {
           </button>
         </div>
       </div>
-    </PageShell>
+    </AppShell>
   );
 }

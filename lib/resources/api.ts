@@ -136,6 +136,13 @@ export function createApi(
     integration: ownerApiIntegration,
     authorizer,
   });
+  // The views across all lists (All items, Want most, Got it)
+  httpApi.addRoutes({
+    path: "/items",
+    methods: [HttpMethod.GET],
+    integration: ownerApiIntegration,
+    authorizer,
+  });
   httpApi.addRoutes({
     path: "/me",
     methods: [HttpMethod.GET, HttpMethod.PATCH],

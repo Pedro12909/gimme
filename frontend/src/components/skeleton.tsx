@@ -43,19 +43,13 @@ export function TitleBones({ meta = true }: { meta?: boolean }) {
 }
 
 // Square tiles with a name and a "shop · price" line, like the item grid
-export function TileGridBones({
-  count = 8,
-  narrow = false,
-}: {
-  count?: number;
-  narrow?: boolean;
-}) {
+export function TileGridBones({ count = 8 }: { count?: number }) {
   return (
-    <TileGrid narrow={narrow}>
+    <TileGrid>
       {Array.from({ length: count }, (_, index) => (
         <li key={index}>
-          <Bone className="aspect-square rounded-md" />
-          <div className="pt-2">
+          <Bone className="aspect-square rounded-card" />
+          <div className="pt-2.5">
             <Bone className="h-3.5 w-3/4" />
             <Bone className="mt-1.5 h-3 w-1/2" />
           </div>

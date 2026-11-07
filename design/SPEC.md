@@ -1,3 +1,13 @@
+> **Superseded in part (2026-11-07).** The home redesign, direction C rev 2, in
+> [`design/home-redesign.md`](home-redesign.md) now wins over this file wherever they differ.
+> It brings design system "gimme" v2 (https://claude.ai/artifact/8Rh7YdC9dLmJouxVZKZb67).
+> - **Look:** monochrome (ink accent, ink star, grey status, only `danger` in colour).
+> - **Layout:** sidebar + list + item panel, with no lists screen.
+> - **Controls:** icon buttons from `components/icon.tsx` and menus.
+>
+> This file still covers what the redesign doesn't: the guest flow, sign-in, copy and the
+> other screens.
+
 # gimme design spec: Things 3 look
 
 The visual and UX rules for the gimme frontend. Every UI change follows this file.

@@ -29,14 +29,22 @@ export type List = {
   isPrivate?: boolean;
   shareToken: string;
   createdAt: string;
+  // The list the app opens on at /. Every owner has exactly one.
+  isDefault?: boolean;
 };
 
-// From GET /lists only: enough to tell lists apart on the lists screen.
-// Optional so an older API (mid-deploy) doesn't break the page.
+// From GET /lists only: what the sidebar needs, including the counts for the views
 export type ListSummary = List & {
-  itemCount?: number;
+  itemCount: number;
+  starredCount: number;
+  gotCount: number;
   previewImages?: string[];
 };
+
+export type Lists = { defaultListId?: string; lists: ListSummary[] };
+
+// The views across every list
+export type ItemsView = "all" | "want" | "got";
 
 export type Item = {
   listId: string;
@@ -96,7 +104,11 @@ const listPath = (listId: string) => `/lists/${encodeURIComponent(listId)}`;
 const itemPath = (listId: string, itemId: string) =>
   `${listPath(listId)}/items/${encodeURIComponent(itemId)}`;
 
-export const getLists = () => ownerRequest<ListSummary[]>("/lists");
+// Oldest first. Also makes a new owner's first list, so the app always has one to open.
+export const getLists = () => ownerRequest<Lists>("/lists");
+
+export const getItems = (view: ItemsView) =>
+  ownerRequest<Item[]>(`/items?view=${view}`);
 
 export const getList = (listId: string) =>
   ownerRequest<ListWithItems>(listPath(listId));
@@ -104,8 +116,12 @@ export const getList = (listId: string) =>
 export const createList = (input: ListInput) =>
   ownerRequest<List>("/lists", json("POST", input));
 
-export const updateList = (listId: string, input: ListInput) =>
+export const updateList = (listId: string, input: Partial<ListInput>) =>
   ownerRequest<List>(listPath(listId), json("PATCH", input));
+
+// "Open this list first": the old default stops being it in the same write
+export const setDefaultList = (listId: string) =>
+  ownerRequest<List>(listPath(listId), json("PATCH", { isDefault: true }));
 
 export const deleteList = (listId: string) =>
   ownerRequest<void>(listPath(listId), { method: "DELETE" });
@@ -113,8 +129,16 @@ export const deleteList = (listId: string) =>
 export const addItem = (listId: string, input: ItemInput) =>
   ownerRequest<Item>(`${listPath(listId)}/items`, json("POST", input));
 
-export const updateItem = (listId: string, itemId: string, input: ItemInput) =>
-  ownerRequest<Item>(itemPath(listId, itemId), json("PATCH", input));
+// Only the fields sent change
+export const updateItem = (
+  listId: string,
+  itemId: string,
+  input: Partial<ItemInput>,
+) => ownerRequest<Item>(itemPath(listId, itemId), json("PATCH", input));
+
+// A copy in another list, at the bottom of its order. The original stays, claim and all.
+export const copyItemToList = (listId: string, itemId: string, to: string) =>
+  ownerRequest<Item>(`${itemPath(listId, itemId)}/copy`, json("POST", { to }));
 
 // Reordering only ever changes the moved item's position key
 export const moveItem = (listId: string, itemId: string, position: string) =>

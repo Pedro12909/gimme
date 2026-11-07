@@ -7,8 +7,7 @@ import { RequireAuth } from "@/components/require-auth";
 // a download with the old page still on screen.
 const preloadOwnerPages = () =>
   Promise.all([
-    import("@/pages/Lists"),
-    import("@/pages/ListDetail"),
+    import("@/pages/Home"),
     import("@/pages/ListSettings"),
     import("@/pages/ListPreview"),
     import("@/pages/Account"),

@@ -18,7 +18,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { generateKeyBetween } from "fractional-indexing";
-import { ItemCaption, TileGrid, TileSquare } from "@/components/tile";
+import {
+  ItemCaption,
+  ownerBadge,
+  TileGrid,
+  TileSquare,
+} from "@/components/tile";
 import { itemLabel } from "@/lib/item-view";
 import type { Item } from "@/lib/owner-api";
 import { useJustChanged } from "@/lib/use-just-changed";
@@ -27,16 +32,14 @@ import { cn } from "@/lib/utils";
 function OwnerTile({
   item,
   sortable,
-  editing,
-  dimmed,
-  onEdit,
+  selected,
+  onSelect,
 }: {
   item: Item;
   sortable: boolean;
-  editing: boolean;
-  // Another item is open in the edit panel
-  dimmed: boolean;
-  onEdit: () => void;
+  // Open in the item panel
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const {
     attributes,
@@ -48,32 +51,37 @@ function OwnerTile({
   } = useSortable({ id: item.itemId, disabled: !sortable });
   // Letting go of a drag (or Space, to drop) also counts as a click; that shouldn't open the item
   const justDragged = useJustChanged(isDragging, 400);
+  const state = item.got ? ", you got this" : item.starred ? ", want most" : "";
 
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn(isDragging && "relative z-10", dimmed && "lg:opacity-45")}
+      className={cn(isDragging && "relative z-10")}
     >
       <button
         type="button"
         {...(sortable ? { ...attributes, ...listeners } : {})}
-        onClick={() => !justDragged() && onEdit()}
-        aria-label={`Edit ${itemLabel(item)}`}
-        aria-current={editing || undefined}
+        onClick={() => !justDragged() && onSelect()}
+        aria-label={`${itemLabel(item)}${state}`}
+        aria-pressed={selected}
         className={cn(
           // No long-press photo menu on phones: a long press picks the tile up
-          "block w-full touch-manipulation select-none [-webkit-touch-callout:none]",
+          "group block w-full touch-manipulation text-left select-none [-webkit-touch-callout:none]",
           sortable && "cursor-grab active:cursor-grabbing",
-          editing && "rounded-md outline-2 outline-offset-4 outline-accent",
+          item.got && "opacity-45",
         )}
       >
         <TileSquare
           imageUrl={item.imageUrl}
-          veil={item.got ? "You got this" : undefined}
+          badge={ownerBadge(item)}
+          className={cn(
+            "group-hover:border-hairline-strong",
+            selected && "outline-2 outline-offset-3 outline-accent",
+          )}
         />
+        <ItemCaption item={item} />
       </button>
-      <ItemCaption item={item} muted={item.got} />
     </li>
   );
 }
@@ -81,9 +89,8 @@ function OwnerTile({
 export function OwnerTiles({
   items,
   sortable,
-  editingId,
-  narrow,
-  onEdit,
+  selectedId,
+  onSelect,
   onMove,
   onMoveFailed,
   extra,
@@ -91,9 +98,8 @@ export function OwnerTiles({
   items: Item[];
   // Only in the owner's own order with nothing filtered or grouped: anything else is ambiguous
   sortable: boolean;
-  editingId?: string;
-  narrow: boolean;
-  onEdit: (item: Item) => void;
+  selectedId?: string;
+  onSelect: (item: Item) => void;
   onMove: (itemId: string, position: string) => void;
   onMoveFailed: () => void;
   // After the tiles, e.g. the one being added
@@ -164,7 +170,7 @@ export function OwnerTiles({
         announcements,
         screenReaderInstructions: {
           draggable:
-            "Press Enter to edit. To reorder, press Space, use the arrow keys to move, then press Space again. Press Escape to cancel.",
+            "Press Enter to open. To reorder, press Space, use the arrow keys to move, then press Space again. Press Escape to cancel.",
         },
       }}
     >
@@ -172,15 +178,14 @@ export function OwnerTiles({
         items={items.map((item) => item.itemId)}
         strategy={rectSortingStrategy}
       >
-        <TileGrid narrow={narrow}>
+        <TileGrid>
           {items.map((item) => (
             <OwnerTile
               key={item.itemId}
               item={item}
               sortable={sortable}
-              editing={item.itemId === editingId}
-              dimmed={editingId !== undefined && item.itemId !== editingId}
-              onEdit={() => onEdit(item)}
+              selected={item.itemId === selectedId}
+              onSelect={() => onSelect(item)}
             />
           ))}
           {extra}

@@ -115,3 +115,37 @@ export async function deleteImages(keys: unknown[]) {
     console.error("Failed to delete images", err);
   }
 }
+
+const IMAGE_KEY = /^images\/[0-9a-f-]{36}\.(webp|jpg)$/;
+
+// A copied item gets its own copy of an uploaded photo. Deleting an item deletes its photo,
+// so two items must never share one. Returns undefined if the photo can't be copied.
+export async function copyImage(
+  imageKey: string,
+  ownerId: string,
+  listId: string,
+) {
+  const match = IMAGE_KEY.exec(imageKey);
+  if (!match) return undefined;
+
+  const extension = match[1];
+  const copyKey = `images/${crypto.randomUUID()}.${extension}`;
+  try {
+    await s3.send(
+      new CopyObjectCommand({
+        Bucket: bucket,
+        Key: copyKey,
+        CopySource: `${bucket}/${imageKey}`,
+        MetadataDirective: "REPLACE",
+        ContentType: CONTENT_TYPES[extension],
+        CacheControl: "public, max-age=31536000, immutable",
+        Metadata: { owner: ownerId, list: listId },
+      }),
+    );
+  } catch (err) {
+    console.error("Failed to copy image", imageKey, err);
+    return undefined;
+  }
+
+  return { imageKey: copyKey, imageUrl: `${publicBaseUrl}/${copyKey}` };
+}

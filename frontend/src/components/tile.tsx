@@ -1,16 +1,36 @@
 import { useState } from "react";
+import { Icon } from "@/components/icon";
 import { itemLabel, itemMeta, type ViewableItem } from "@/lib/item-view";
 import { cn } from "@/lib/utils";
 
-// The square: the product photo on white, or an empty tile. A veil greys it out with a few
-// words bottom-left, which is how an item's state is shown ("Taken", "You got this").
+// An item's state, shown as a badge in the photo's top-right corner. "got" covers the
+// owner's Got it and the guest's Taken: the tile also fades.
+export type TileBadge = "want" | "got";
+
+function Badge({ badge }: { badge: TileBadge }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "absolute top-2 right-2 flex size-6 items-center justify-center rounded-full",
+        badge === "want"
+          ? "bg-accent text-accent-on"
+          : "border-[1.5px] border-ink bg-ground text-ink",
+      )}
+    >
+      <Icon name={badge === "want" ? "star" : "check"} size={13} />
+    </span>
+  );
+}
+
+// The square: the product photo on white with a hairline edge, or an empty square
 export function TileSquare({
   imageUrl,
-  veil,
+  badge,
   className,
 }: {
   imageUrl?: string;
-  veil?: string;
+  badge?: TileBadge;
   className?: string;
 }) {
   const [failedUrl, setFailedUrl] = useState<string>();
@@ -19,9 +39,8 @@ export function TileSquare({
   return (
     <span
       className={cn(
-        "relative block aspect-square overflow-hidden rounded-md",
-        // A hairline edge keeps white products visible on a white page
-        showImage ? "border border-hairline bg-photo" : "bg-tile",
+        "relative block aspect-square overflow-hidden rounded-card border border-hairline",
+        showImage ? "bg-photo" : "bg-surface",
         className,
       )}
     >
@@ -34,77 +53,58 @@ export function TileSquare({
           // Shops don't need to know which list (or share link) the image was viewed from
           referrerPolicy="no-referrer"
           onError={() => setFailedUrl(imageUrl)}
-          className="size-full object-contain p-[9%]"
+          className="size-full object-contain p-[10%]"
         />
       )}
-      {veil && (
-        <>
-          <span className="absolute inset-0 bg-veil" />
-          <span className="absolute right-2.5 bottom-2 left-2.5 text-left text-[13px] font-medium text-ink sm:bottom-2.5 sm:left-3">
-            {veil}
-          </span>
-        </>
-      )}
+      {badge && <Badge badge={badge} />}
     </span>
   );
 }
 
-// Name, then "shop · price", then "Want most" with its yellow star.
+// Got wins over Want when both are set
+export const ownerBadge = (item: ViewableItem): TileBadge | undefined =>
+  item.got ? "got" : item.starred ? "want" : undefined;
+
+// Name on one line, then "shop · price"
 export function ItemCaption({
   item,
-  muted = false,
+  meta,
   children,
 }: {
   item: ViewableItem;
-  // Greyed with its tile, e.g. "You got this"
-  muted?: boolean;
+  // In place of "shop · price", e.g. "Taken"
+  meta?: string;
   // Lines below, e.g. the guest's Claim
   children?: React.ReactNode;
 }) {
-  const meta = itemMeta(item);
+  const line = meta ?? itemMeta(item);
 
   return (
-    <div className="pt-2 pr-1 sm:pt-2.5 sm:pr-2">
-      <p
-        className={cn(
-          "line-clamp-3 text-sm leading-[1.3] font-medium sm:text-[15px]",
-          muted && "text-muted",
-        )}
-      >
+    <div className="flex flex-col gap-0.5 pt-2.5">
+      <p className="truncate text-sm font-medium group-hover:underline group-hover:underline-offset-3">
         {itemLabel(item)}
       </p>
-      {meta && (
-        <p className="mt-0.5 text-xs text-muted sm:mt-1 sm:text-[13px]">
-          {meta}
-        </p>
-      )}
-      {item.starred && (
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted sm:mt-1 sm:text-[13px]">
-          <span aria-hidden="true" className="text-star">
-            ★
-          </span>
-          Want most
-        </p>
+      {line && (
+        <p className="truncate text-[13px] text-muted tabular-nums">{line}</p>
       )}
       {children}
     </div>
   );
 }
 
-// 2 columns on phones, 3 from 640px, 4 from 1024px unless `narrow`
+// The shelf: as many columns as fit at 150px or more, two on phones
 export function TileGrid({
-  narrow = false,
   children,
+  className,
 }: {
-  // Room for the edit panel beside it
-  narrow?: boolean;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
     <ul
       className={cn(
-        "grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:gap-y-8",
-        !narrow && "lg:grid-cols-4",
+        "grid grid-cols-2 gap-x-3 gap-y-[22px] md:grid-cols-[repeat(auto-fill,minmax(var(--tile-min),1fr))] md:gap-x-5 md:gap-y-7",
+        className,
       )}
     >
       {children}

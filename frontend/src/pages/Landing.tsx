@@ -1,8 +1,10 @@
-import { Link, Navigate, useNavigate } from "react-router";
+import { lazy, Suspense } from "react";
+import { Link, useNavigate } from "react-router";
 import { PageSkeleton } from "@/components/skeleton";
 import { PageShell, Wordmark } from "@/components/page-shell";
 import { SendCodeForm } from "@/components/send-code-form";
 import { useAuth } from "@/lib/use-auth";
+import { Icon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 
 // Simple drawings stand in for product photos, so the page needs no external images
@@ -80,8 +82,8 @@ const drawings = {
         stroke="#2b2b2b"
         strokeWidth="0.6"
       />
-      <circle cx="60" cy="49" r="7" fill="#d9a441" />
-      <rect x="22" y="25" width="45" height="48" fill="#2f4b66" />
+      <circle cx="60" cy="49" r="7" fill="#c4c4bf" />
+      <rect x="22" y="25" width="45" height="48" fill="#4a4a4c" />
       <rect x="28" y="31" width="20" height="2" fill="#e9e4d8" />
       <rect x="28" y="35" width="13" height="2" fill="#e9e4d8" />
       <circle
@@ -89,7 +91,7 @@ const drawings = {
         cy="58"
         r="8"
         fill="none"
-        stroke="#c9563d"
+        stroke="#8e8e93"
         strokeWidth="2"
       />
     </>
@@ -125,12 +127,22 @@ const EXAMPLES: {
   { name: "Bonsai Tree", shop: "LEGO", drawing: "bonsai" },
 ];
 
+// Signed in, / is the owner's default list. Loaded on demand, so visitors who aren't signed
+// in never download the app.
+const Home = lazy(() => import("@/pages/Home"));
+
 export default function Landing() {
   const { user, isPending } = useAuth();
   const navigate = useNavigate();
 
   if (isPending) return <PageSkeleton />;
-  if (user) return <Navigate to="/lists" replace />;
+  if (user) {
+    return (
+      <Suspense fallback={<PageSkeleton />}>
+        <Home />
+      </Suspense>
+    );
+  }
 
   return (
     <PageShell
@@ -176,27 +188,27 @@ export default function Landing() {
               index === 4 && "max-lg:hidden",
             )}
           >
-            <span
-              aria-hidden="true"
-              className="relative block aspect-square overflow-hidden rounded-md border border-hairline bg-photo"
-            >
-              <svg viewBox="0 0 100 100" className="size-full">
-                {drawings[example.drawing]}
-              </svg>
-              {example.taken && (
-                <>
-                  <span className="absolute inset-0 bg-veil" />
-                  <span className="absolute bottom-2 left-2.5 text-[13px] font-medium">
-                    Taken
+            <div className={cn(example.taken && "opacity-45")}>
+              <span
+                aria-hidden="true"
+                className="relative block aspect-square overflow-hidden rounded-card border border-hairline bg-photo"
+              >
+                <svg viewBox="0 0 100 100" className="size-full">
+                  {drawings[example.drawing]}
+                </svg>
+                {example.taken && (
+                  <span className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border-[1.5px] border-ink bg-ground text-ink">
+                    <Icon name="check" size={13} />
                   </span>
-                </>
-              )}
-            </span>
-            <p className="pt-2 pr-1 text-sm font-medium sm:pr-2">
-              {example.name}
-              {example.taken && <span className="sr-only"> (taken)</span>}
-            </p>
-            <p className="mt-0.5 text-xs text-muted">{example.shop}</p>
+                )}
+              </span>
+              <p className="truncate pt-2.5 text-sm font-medium">
+                {example.name}
+              </p>
+              <p className="mt-0.5 text-[13px] text-muted">
+                {example.taken ? "Taken" : example.shop}
+              </p>
+            </div>
           </li>
         ))}
       </ul>
