@@ -78,6 +78,8 @@
   --sidebar-width: 232px;
   --panel-width: 320px;
   --tile-min: 150px;
+  /* Shelf tiles from 768px: one size whether or not the item panel is open */
+  --tile-size: 176px;
   --row-nav: 38px;
   /* Loading placeholders, a touch darker than a surface so they read on white */
   --skeleton: #e4e4e7;
@@ -147,6 +149,21 @@
   }
   dialog::backdrop {
     background: var(--scrim);
+  }
+  dialog[open]::backdrop {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  /* Small and quick: things that appear slide a few pixels; hovers ease their colour */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after,
+    ::backdrop {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
@@ -235,6 +252,7 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.15s;
   }
   .submit:hover:not(:disabled) {
     background: var(--accent-hover);
@@ -283,6 +301,7 @@
 @layer components {
   /* 40px square, transparent, --fg-2 icon; 44px where fingers tap */
   .icon-button {
+    transition: background-color 0.15s;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -328,6 +347,7 @@
     font-size: 14px;
   }
   .menu-item {
+    transition: background-color 0.1s;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -353,6 +373,7 @@
 
   /* A row in the sidebar: views, lists, the account */
   .nav-row {
+    transition: background-color 0.15s;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -368,6 +389,75 @@
   .nav-row[aria-current="page"] {
     background: var(--selected);
     font-weight: 600;
+  }
+}
+
+@utility animate-panel-in {
+  animation: slide-in-right 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* The item panel on wide screens opens by growing, so the shelf makes room smoothly
+   instead of jumping; its content slides in as it does */
+@utility animate-panel-grow {
+  animation: panel-grow 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@utility animate-menu-down {
+  transform-origin: top right;
+  animation: menu-in-down 0.14s ease-out;
+}
+@utility animate-menu-up {
+  transform-origin: bottom left;
+  animation: menu-in-up 0.14s ease-out;
+}
+@utility animate-sheet-up {
+  animation: slide-in-up 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes panel-grow {
+  from {
+    width: 0;
+  }
+}
+@keyframes slide-in-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes menu-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes menu-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+@layer components {
+  /* The tile under the pointer grows a touch. Pointers only; touch screens keep still. */
+  .dock .tile-square {
+    transform-origin: 50% 100%;
+    transition:
+      transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+      border-color 0.15s;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .dock > li:hover .tile-square {
+      transform: scale(1.025);
+    }
   }
 }
 

@@ -4,7 +4,11 @@ import { Icon, IconButton } from "@/components/icon";
 import { Menu, MenuItem, MenuNote } from "@/components/menu";
 import { useTwoStep } from "@/components/two-step";
 import { ApiError } from "@/lib/http";
-import { extractLink, ITEM_LIMITS as LIMITS } from "@/lib/item-input";
+import {
+  extractLink,
+  httpsOnly,
+  ITEM_LIMITS as LIMITS,
+} from "@/lib/item-input";
 import { withCurrency } from "@/lib/item-view";
 import { safeHref, siteName } from "@/lib/links";
 import { MAX_ITEMS_PER_LIST } from "@/lib/limits";
@@ -24,6 +28,7 @@ import {
   removeItemFromCache,
 } from "@/lib/owner-data";
 import { ImageReadError, resizeImage } from "@/lib/resize-image";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
 // The selected item, edited in place: every change saves itself (design/home-redesign.md, 7).
@@ -53,8 +58,11 @@ const imageFile = (files: FileList | null | undefined) =>
 const draggingFiles = (event: { dataTransfer: DataTransfer | null }) =>
   event.dataTransfer?.types.includes("Files") ?? false;
 
+// Text that's a link to an image file, such as a copied image address
+const IMAGE_LINK = /^https:\/\/\S+\.(png|jpe?g|webp|gif|avif)(\?\S*)?$/i;
+
 const rowInput =
-  "h-9 w-full min-w-0 rounded-sm bg-transparent px-2 text-sm placeholder:text-meta hover:bg-surface focus:bg-surface";
+  "h-9 w-full min-w-0 rounded-sm bg-transparent px-2 text-sm transition-colors duration-150 placeholder:text-meta hover:bg-surface focus:bg-surface";
 
 function Row({
   label,
@@ -107,7 +115,7 @@ function Toggle({
       aria-checked={on}
       onClick={() => onChange(!on)}
       className={cn(
-        "flex h-11 flex-1 items-center justify-center gap-2 rounded-md text-sm font-semibold",
+        "flex h-11 flex-1 items-center justify-center gap-2 rounded-md text-sm font-semibold transition-colors duration-150",
         on
           ? "bg-accent text-accent-on hover:bg-accent-hover"
           : "border border-hairline-strong bg-ground text-ink hover:bg-surface",
@@ -351,9 +359,41 @@ export function ItemPanel({
     },
   };
 
+  // A photo from a link: anything https, as guests see it on an https page. The server
+  // removes an uploaded photo it replaces.
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkDraft, setLinkDraft] = useState("");
+  const [linkError, setLinkError] = useState<string>();
+  const applyImageLink = (link: string) => {
+    setPhoto({ kind: "none" });
+    setLinkOpen(false);
+    setLinkDraft("");
+    setLinkError(undefined);
+    if (link === item.imageUrl) return;
+    patchItemInCache(queryClient, listId, itemId, {
+      imageUrl: link,
+      imageKey: undefined,
+    });
+    queue({ imageUrl: link }, true);
+  };
+  const finishLink = () => {
+    const link = extractLink(linkDraft).trim();
+    if (link === "") {
+      setLinkOpen(false);
+      setLinkError(undefined);
+    } else if (httpsOnly(link)) {
+      applyImageLink(link);
+    } else {
+      setLinkError("Paste a full image link, starting with https://");
+    }
+  };
+  const canDropOrPaste = useMediaQuery("(pointer: fine)");
+
   const takePhotoRef = useRef(takePhoto);
+  const applyImageLinkRef = useRef(applyImageLink);
   useEffect(() => {
     takePhotoRef.current = takePhoto;
+    applyImageLinkRef.current = applyImageLink;
   });
   useEffect(() => {
     // A file dropped just outside the panel would otherwise open in the tab
@@ -364,14 +404,23 @@ export function ItemPanel({
     // a field still pastes as text.
     const onPaste = (event: ClipboardEvent) => {
       const data = event.clipboardData;
-      const file = imageFile(data?.files);
-      if (!data || !file) return;
+      if (!data) return;
       const inField = (event.target as Element | null)?.closest?.(
         "input, textarea, [contenteditable]",
       );
-      if (inField && data.types.includes("text/plain")) return;
-      event.preventDefault();
-      takePhotoRef.current(file);
+      const file = imageFile(data.files);
+      if (file) {
+        if (inField && data.types.includes("text/plain")) return;
+        event.preventDefault();
+        takePhotoRef.current(file);
+        return;
+      }
+      // A copied image address ("Copy image address"), pasted outside the fields
+      const text = data.getData("text/plain").trim();
+      if (!inField && IMAGE_LINK.test(text)) {
+        event.preventDefault();
+        applyImageLinkRef.current(text);
+      }
     };
     window.addEventListener("dragover", keepPage);
     window.addEventListener("drop", keepPage);
@@ -470,7 +519,7 @@ export function ItemPanel({
           )}
         >
           {others.length === 0 ? (
-            <MenuNote>Make another list to copy things there.</MenuNote>
+            <MenuNote>Make another list to copy items there.</MenuNote>
           ) : (
             others.map((list) => (
               <MenuItem
@@ -519,11 +568,21 @@ export function ItemPanel({
           aria-label="Change photo: pick one, or drop or paste it here"
           title="Change photo"
           className={cn(
-            "relative block aspect-[4/3] w-full overflow-hidden rounded-card border border-hairline bg-photo",
+            "group/photo relative block aspect-[4/3] w-full cursor-pointer overflow-hidden rounded-card border border-hairline bg-photo transition-colors hover:border-hairline-strong",
             dragging &&
               "outline-2 outline-offset-3 outline-accent outline-dashed",
           )}
         >
+          {/* Always there, so it's clear the photo can change; says so on hover */}
+          <span
+            aria-hidden="true"
+            className="absolute right-2 bottom-2 z-10 flex h-8 items-center gap-1.5 rounded-full bg-accent px-2.5 text-[13px] font-semibold text-accent-on shadow-menu"
+          >
+            <Icon name="image" size={16} />
+            <span className="hidden group-hover/photo:inline group-focus-visible/photo:inline">
+              {imageUrl ? "Change photo" : "Add photo"}
+            </span>
+          </span>
           {imageUrl ? (
             <img
               src={imageUrl}
@@ -535,11 +594,75 @@ export function ItemPanel({
               )}
             />
           ) : (
-            <span className="absolute inset-0 flex items-center justify-center bg-surface text-[13px] text-muted">
-              {dragging ? "Drop the photo" : "Add a photo"}
+            <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface text-[13px] text-muted">
+              <Icon
+                name="gift"
+                size={40}
+                strokeWidth={1.4}
+                className="text-meta"
+              />
+              {dragging ? "Drop the photo" : "No photo yet"}
             </span>
           )}
         </button>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+          <button
+            type="button"
+            className="font-medium text-ink underline-offset-3 hover:underline disabled:text-muted"
+            disabled={photo.kind === "uploading"}
+            onClick={() => fileInput.current?.click()}
+          >
+            Choose a photo
+          </button>
+          <button
+            type="button"
+            className="font-medium text-ink underline-offset-3 hover:underline"
+            onClick={() => setLinkOpen(true)}
+          >
+            Use an image link
+          </button>
+          {canDropOrPaste && (
+            <span className="text-muted">or drop or paste one here</span>
+          )}
+        </div>
+        {linkOpen && (
+          <div className="mt-2">
+            <input
+              type="url"
+              inputMode="url"
+              autoFocus
+              aria-label="Image link"
+              placeholder="https://… an image from any site"
+              value={linkDraft}
+              maxLength={LIMITS.url}
+              autoComplete="off"
+              aria-invalid={linkError !== undefined}
+              onChange={(event) => {
+                setLinkDraft(event.target.value);
+                setLinkError(undefined);
+              }}
+              onBlur={finishLink}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  finishLink();
+                }
+                if (event.key === "Escape") {
+                  event.stopPropagation();
+                  setLinkOpen(false);
+                  setLinkDraft("");
+                  setLinkError(undefined);
+                }
+              }}
+              className="h-10 w-full rounded-sm bg-surface px-3 text-sm placeholder:text-meta"
+            />
+            {linkError && (
+              <p role="alert" className="mt-1 text-[13px] text-danger">
+                {linkError}
+              </p>
+            )}
+          </div>
+        )}
         {(photo.kind !== "none" || dragging) && (
           <p aria-live="polite" className="mt-1.5 text-[13px] text-muted">
             {dragging

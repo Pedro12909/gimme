@@ -117,7 +117,9 @@ export function Menu({
           onKeyDown={onKeyDown}
           className={cn(
             "menu absolute z-40",
-            side === "bottom" ? "top-full mt-1.5" : "bottom-full mb-1.5",
+            side === "bottom"
+              ? "animate-menu-down top-full mt-1.5"
+              : "animate-menu-up bottom-full mb-1.5",
             align === "end" ? "right-0" : "left-0",
             className,
           )}

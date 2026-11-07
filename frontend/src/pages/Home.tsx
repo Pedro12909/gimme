@@ -19,7 +19,7 @@ import {
   MenuNote,
 } from "@/components/menu";
 import { OwnerTiles } from "@/components/owner-tiles";
-import { SearchAddBox } from "@/components/search-add-box";
+import { SearchBox } from "@/components/search-box";
 import { Sheet } from "@/components/sheet";
 import { Bone, Loading, TileGridBones } from "@/components/skeleton";
 import { TileGrid, TileSquare } from "@/components/tile";
@@ -81,11 +81,11 @@ const viewFromPath = (pathname: string) =>
     (view) => VIEW_PATHS[view] === pathname,
   );
 
-const FULL_NOTICE = `This list has ${MAX_ITEMS_PER_LIST} things, the most it can hold. Remove one to add another.`;
+const FULL_NOTICE = `This list has ${MAX_ITEMS_PER_LIST} items, the most it can hold. Remove one to add another.`;
 
 const EMPTY: Record<ItemsView | "list", string> = {
-  list: "Nothing here yet. Paste a link above.",
-  all: "Nothing here yet. Paste a link above.",
+  list: "Nothing here yet. Copy a product link from any shop and paste it on this page.",
+  all: "Nothing here yet. Copy a product link from any shop and paste it on this page.",
   want: "No items marked Want most.",
   got: "Nothing marked Got it yet.",
 };
@@ -169,7 +169,13 @@ function SortMenu({
     <Menu
       label="Sort and group"
       trigger={(props) => (
-        <IconButton icon="sliders" label="Sort and group" {...props} />
+        // Same height and surface as the search box it sits beside
+        <IconButton
+          icon="sliders"
+          label="Sort and group"
+          className="size-[46px] rounded-card bg-surface hover:bg-surface-2 aria-expanded:bg-surface-2 lg:size-12"
+          {...props}
+        />
       )}
     >
       <MenuLabel>Sort</MenuLabel>
@@ -530,6 +536,11 @@ function Screen({
   });
 
   const add = (text: string) => {
+    if (addByLink.isPending) return;
+    if (full) {
+      setNotice(FULL_NOTICE);
+      return;
+    }
     const url = extractLink(text);
     if (!safeHref(url) || !targetListId) {
       setNotice("Paste a full link, starting with https://");
@@ -539,6 +550,27 @@ function Screen({
     // The words around the link, if any, help name it when the shop's page can't be read
     addByLink.mutate({ url, text: text.trim() === url ? undefined : text });
   };
+
+  // For now (until the add button is designed), a product link pasted anywhere outside a
+  // text field adds it. The item panel handles pasted photos first.
+  const addRef = useRef(add);
+  useEffect(() => {
+    addRef.current = add;
+  });
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (event.defaultPrevented) return;
+      const inField = (event.target as Element | null)?.closest?.(
+        "input, textarea, [contenteditable]",
+      );
+      const text = event.clipboardData?.getData("text/plain") ?? "";
+      if (inField || !/https?:\/\/\S+/.test(text)) return;
+      event.preventDefault();
+      addRef.current(text);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
 
   // A link shared into gimme from another app (see ShareTarget) is added on arrival
   const arrival = location.state as {
@@ -686,11 +718,15 @@ function Screen({
       aside={
         wide &&
         panel && (
+          // Wide screens: grows open, so the shelf makes room gradually. Narrower ones: slides
+          // in over the shelf.
           <aside
             aria-label="Selected item"
-            className="sticky top-0 h-dvh w-(--panel-width) flex-none overflow-y-auto border-l border-hairline bg-ground px-6 pt-5 pb-8 max-xl:fixed max-xl:right-0 max-xl:z-30 max-xl:shadow-menu"
+            className="sticky top-0 h-dvh w-(--panel-width) flex-none overflow-hidden border-l border-hairline bg-ground max-xl:fixed max-xl:right-0 max-xl:z-30 max-xl:animate-panel-in max-xl:shadow-menu xl:animate-panel-grow"
           >
-            {panel}
+            <div className="h-full w-(--panel-width) overflow-y-auto px-6 pt-5 pb-8 xl:animate-panel-in">
+              {panel}
+            </div>
           </aside>
         )
       }
@@ -714,12 +750,6 @@ function Screen({
         </div>
         <div className="flex flex-none items-center gap-0.5">
           {list && <ShareButton list={list} />}
-          <SortMenu
-            sort={view.sort}
-            groupBy={view.groupBy}
-            rankingLabel={selection.kind === "list" ? "My order" : "By list"}
-            onChange={(change) => setView({ ...view, ...change })}
-          />
           {list && (
             <ListOptions
               list={list}
@@ -731,17 +761,24 @@ function Screen({
       </div>
 
       <div className="flex flex-col gap-2">
-        <SearchAddBox
-          value={addByLink.isPending ? addByLink.variables.url : view.query}
-          onChange={(query) => {
-            setNotice(undefined);
-            setView({ ...view, query });
-          }}
-          onAdd={add}
-          adding={addByLink.isPending}
-          canAdd={!full && targetListId !== undefined}
-          autoFocus={empty}
-        />
+        <div className="flex gap-2">
+          <div className="min-w-0 flex-1">
+            <SearchBox
+              value={view.query}
+              onChange={(query) => {
+                setNotice(undefined);
+                setView({ ...view, query });
+              }}
+              autoFocus={empty}
+            />
+          </div>
+          <SortMenu
+            sort={view.sort}
+            groupBy={view.groupBy}
+            rankingLabel={selection.kind === "list" ? "My order" : "By list"}
+            onChange={(change) => setView({ ...view, ...change })}
+          />
+        </div>
         {(notice || full) && (
           <p role="status" className="text-[13px] text-muted">
             {notice ?? FULL_NOTICE}

@@ -70,9 +70,9 @@ export function itemMeta(item: ViewableItem) {
     .join(" · ");
 }
 
-// "nothing yet", "1 thing", "6 things"
-export const countThings = (count: number) =>
-  count === 0 ? "nothing yet" : `${count} ${count === 1 ? "thing" : "things"}`;
+// "No items", "1 item", "6 items"
+export const countItems = (count: number) =>
+  count === 0 ? "No items" : `${count} ${count === 1 ? "item" : "items"}`;
 
 export type SortKey =
   "ranking" | "starred" | "priceAsc" | "priceDesc" | "vendor" | "newest";
@@ -310,13 +310,13 @@ function bandLabel(index: number, currency: string) {
 export type ItemGroup<T> = {
   key: string;
   label: string;
-  // "4 things · €68.40"
+  // "4 items · €68.40"
   summary: string;
   items: T[];
 };
 
 function summarise(items: ViewableItem[]) {
-  const count = countThings(items.length);
+  const count = countItems(items.length);
   const priced = items.filter(hasPrice);
   const currencies = new Set(priced.map((item) => priceCurrency(item.price)));
   // A total across currencies would be meaningless

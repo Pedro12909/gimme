@@ -61,7 +61,7 @@ export function ClaimSheet({
       open={item !== undefined}
       onClose={close}
       labelledBy={headingId}
-      className="inset-x-0 top-auto bottom-0 max-h-[90svh] w-full max-w-none rounded-t-lg bg-ground shadow-sheet sm:inset-y-0 sm:right-0 sm:left-auto sm:h-full sm:max-h-none sm:w-[440px] sm:rounded-none sm:border-l sm:border-hairline"
+      className="animate-sheet-up sm:animate-panel-in inset-x-0 top-auto bottom-0 max-h-[90svh] w-full max-w-none rounded-t-lg bg-ground shadow-sheet sm:inset-y-0 sm:right-0 sm:left-auto sm:h-full sm:max-h-none sm:w-[440px] sm:rounded-none sm:border-l sm:border-hairline"
     >
       {item && (
         <div className="px-4 pt-6 pb-[max(32px,env(safe-area-inset-bottom))] sm:px-7 sm:pt-7">

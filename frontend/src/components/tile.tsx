@@ -39,11 +39,22 @@ export function TileSquare({
   return (
     <span
       className={cn(
-        "relative block aspect-square overflow-hidden rounded-card border border-hairline",
+        "tile-square relative block aspect-square overflow-hidden rounded-card border border-hairline",
         showImage ? "bg-photo" : "bg-surface",
         className,
       )}
     >
+      {/* No photo, or it didn't load: a gift stands in */}
+      {!showImage && (
+        <span className="absolute inset-0 flex items-center justify-center text-meta">
+          <Icon
+            name="gift"
+            size={36}
+            strokeWidth={1.4}
+            className="h-auto w-[28%]"
+          />
+        </span>
+      )}
       {showImage && (
         <img
           src={imageUrl}
@@ -92,7 +103,8 @@ export function ItemCaption({
   );
 }
 
-// The shelf: as many columns as fit at 150px or more, two on phones
+// The shelf: two columns on phones; from 768px, as many fixed-size tiles as fit. Fixed, so
+// opening the item panel drops a column instead of resizing every tile.
 export function TileGrid({
   children,
   className,
@@ -103,7 +115,7 @@ export function TileGrid({
   return (
     <ul
       className={cn(
-        "grid grid-cols-2 gap-x-3 gap-y-[22px] md:grid-cols-[repeat(auto-fill,minmax(var(--tile-min),1fr))] md:gap-x-5 md:gap-y-7",
+        "dock grid grid-cols-2 gap-x-3 gap-y-[22px] md:grid-cols-[repeat(auto-fill,var(--tile-size))] md:gap-x-5 md:gap-y-7",
         className,
       )}
     >

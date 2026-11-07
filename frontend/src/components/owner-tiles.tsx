@@ -33,12 +33,15 @@ function OwnerTile({
   item,
   sortable,
   selected,
+  dimmed,
   onSelect,
 }: {
   item: Item;
   sortable: boolean;
   // Open in the item panel
   selected: boolean;
+  // Another item is open: this one steps back so the open one stands out
+  dimmed: boolean;
   onSelect: () => void;
 }) {
   const {
@@ -67,18 +70,17 @@ function OwnerTile({
         aria-pressed={selected}
         className={cn(
           // No long-press photo menu on phones: a long press picks the tile up
-          "group block w-full touch-manipulation text-left select-none [-webkit-touch-callout:none]",
+          "group block w-full touch-manipulation text-left transition-opacity duration-300 select-none [-webkit-touch-callout:none]",
           sortable && "cursor-grab active:cursor-grabbing",
-          item.got && "opacity-45",
+          dimmed
+            ? "opacity-35 hover:opacity-75"
+            : item.got && !selected && "opacity-45",
         )}
       >
         <TileSquare
           imageUrl={item.imageUrl}
           badge={ownerBadge(item)}
-          className={cn(
-            "group-hover:border-hairline-strong",
-            selected && "outline-2 outline-offset-3 outline-accent",
-          )}
+          className="group-hover:border-hairline-strong"
         />
         <ItemCaption item={item} />
       </button>
@@ -185,6 +187,7 @@ export function OwnerTiles({
               item={item}
               sortable={sortable}
               selected={item.itemId === selectedId}
+              dimmed={selectedId !== undefined && item.itemId !== selectedId}
               onSelect={() => onSelect(item)}
             />
           ))}

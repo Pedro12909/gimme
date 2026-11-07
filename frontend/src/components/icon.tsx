@@ -73,6 +73,24 @@ const PATHS = {
       <path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" />
     </>
   ),
+  // On the panel's photo: it can be changed
+  image: (
+    <>
+      <rect x="3.5" y="5" width="17" height="14" rx="2" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="M20.5 15.5l-5-5-9 8.5" />
+    </>
+  ),
+  // Stands in for a missing or broken product photo
+  gift: (
+    <>
+      <rect x="3.5" y="8" width="17" height="4.5" rx="1" />
+      <path d="M5 12.5v6.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-6.5" />
+      <path d="M12 8v12.5" />
+      <path d="M12 8C10.5 5 6.5 4.2 6.5 6.4 6.5 8 10 8 12 8z" />
+      <path d="M12 8c1.5-3 5.5-3.8 5.5-1.6C17.5 8 14 8 12 8z" />
+    </>
+  ),
   trash: (
     <>
       <path d="M5 7h14" />

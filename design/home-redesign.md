@@ -124,6 +124,8 @@ Between 1024 and 1279px the panel may overlay the main column from the right wit
 
 **Menu** — popover anchored to its button: `--bg`, 1px `--border`, `--radius-card`, `--elev-menu`, padding 6, items 40px, 14px text, hover `--surface`. Escape / outside click / choice closes and returns focus. Radix DropdownMenu is fine underneath; restyle fully.
 
+> *Changed by Pedro, 2026-11-07:* the box is **search only** (placeholder "Search"), with the sort button beside it. How to add an item is being redesigned; until then a product link pasted anywhere outside a text field adds it. The rest of this section describes the old box.
+
 **Search-or-add box** — 48px, `--surface`, `--radius-card`, padding 0 6 0 14, leading `search` icon in `--muted`, placeholder "Search, or paste a link to add".
 - Plain text → filters the current view client-side by name + shop (no debounce needed at these sizes).
 - Text matching `^https?://` → hide filtering and show an inline ink button inside the box: `plus` + "Add from {host}" (host without `www.`), 36px, `--radius-sm`. Enter = same. On a view (not a list), it adds to the default list.

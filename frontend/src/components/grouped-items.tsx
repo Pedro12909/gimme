@@ -1,6 +1,6 @@
 import type { ItemGroup } from "@/lib/item-view";
 
-// Stacked sections, each under a quiet caption: "Under €25 · 4 things · €68"
+// Stacked sections, each under a quiet caption: "Under €25 · 4 items · €68"
 export function GroupedItems<T>({
   groups,
   render,

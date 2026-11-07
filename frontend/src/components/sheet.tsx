@@ -46,7 +46,7 @@ export function Sheet({
       open={open}
       onClose={onClose}
       labelledBy={labelledBy}
-      className="inset-x-0 top-auto bottom-0 max-h-[92svh] w-full max-w-none overflow-y-auto rounded-t-lg bg-ground shadow-sheet"
+      className="animate-sheet-up inset-x-0 top-auto bottom-0 max-h-[92svh] w-full max-w-none overflow-y-auto rounded-t-lg bg-ground shadow-sheet"
     >
       <div
         style={{

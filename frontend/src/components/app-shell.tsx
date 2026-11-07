@@ -299,7 +299,7 @@ function PhoneNav({ current }: { current: Current }) {
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
         labelledBy={sheetHeading}
-        className="inset-x-0 top-auto bottom-0 w-full max-w-none rounded-t-lg bg-ground shadow-sheet"
+        className="animate-sheet-up inset-x-0 top-auto bottom-0 w-full max-w-none rounded-t-lg bg-ground shadow-sheet"
       >
         <div className="px-3 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-3 px-3 pb-2">
