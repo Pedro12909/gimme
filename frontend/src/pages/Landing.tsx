@@ -1,4 +1,5 @@
 import { Link, Navigate, useNavigate } from "react-router";
+import { PageSkeleton } from "@/components/skeleton";
 import { PageShell, Wordmark } from "@/components/page-shell";
 import { SendCodeForm } from "@/components/send-code-form";
 import { useAuth } from "@/lib/use-auth";
@@ -128,7 +129,7 @@ export default function Landing() {
   const { user, isPending } = useAuth();
   const navigate = useNavigate();
 
-  if (isPending) return null;
+  if (isPending) return <PageSkeleton />;
   if (user) return <Navigate to="/lists" replace />;
 
   return (
@@ -146,7 +147,7 @@ export default function Landing() {
       }
       mainClassName="pt-12 sm:pt-18"
     >
-      <h1 className="page-title max-w-[900px] text-[60px] leading-[0.92] [font-stretch:72%] sm:text-[84px] sm:leading-[0.92] lg:text-[104px]">
+      <h1 className="page-title max-w-[760px] text-[40px] leading-[1.05] tracking-[-0.02em] sm:text-[56px] lg:text-[64px]">
         Wishlists that keep the surprise
       </h1>
       <p className="mt-7 max-w-[520px] text-lg leading-normal">
@@ -165,7 +166,7 @@ export default function Landing() {
       <p className="mt-16 mb-3 text-[13px] text-muted sm:mt-22">
         What your friends see
       </p>
-      <ul className="-mx-4 grid grid-cols-2 gap-x-0.5 gap-y-6 sm:mx-0 sm:grid-cols-3 lg:grid-cols-5">
+      <ul className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-5">
         {EXAMPLES.map((example, index) => (
           <li
             key={example.name}
@@ -177,7 +178,7 @@ export default function Landing() {
           >
             <span
               aria-hidden="true"
-              className="relative block aspect-square bg-photo"
+              className="relative block aspect-square overflow-hidden rounded-md border border-hairline bg-photo"
             >
               <svg viewBox="0 0 100 100" className="size-full">
                 {drawings[example.drawing]}
@@ -191,13 +192,11 @@ export default function Landing() {
                 </>
               )}
             </span>
-            <p className="pt-2 pr-2.5 pl-3 text-sm font-medium sm:pl-0">
+            <p className="pt-2 pr-1 text-sm font-medium sm:pr-2">
               {example.name}
               {example.taken && <span className="sr-only"> (taken)</span>}
             </p>
-            <p className="mt-0.5 pl-3 text-xs text-muted sm:pl-0">
-              {example.shop}
-            </p>
+            <p className="mt-0.5 text-xs text-muted">{example.shop}</p>
           </li>
         ))}
       </ul>

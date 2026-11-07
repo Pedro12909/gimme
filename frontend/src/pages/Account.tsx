@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FieldBones, Loading } from "@/components/skeleton";
 import { OwnerHeader, PageShell } from "@/components/page-shell";
 import { signOut } from "@/lib/auth";
 import { getMe, updateMe, type Me } from "@/lib/owner-api";
-import { readThemeChoice, setThemeChoice, type ThemeChoice } from "@/lib/theme";
+import { setThemeChoice, useTheme, type ThemeChoice } from "@/lib/theme";
 import { authQueryKey, useAuth } from "@/lib/use-auth";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +47,7 @@ function NameForm({ me }: { me: Me }) {
       <label htmlFor="display-name" className="block text-[13px] text-muted">
         Your name
       </label>
-      <div className="mt-2 flex">
+      <div className="mt-2 flex gap-2">
         <input
           id="display-name"
           type="text"
@@ -55,7 +56,7 @@ function NameForm({ me }: { me: Me }) {
           onChange={(event) => setName(event.target.value)}
           maxLength={MAX_NAME_LENGTH}
           autoComplete="given-name"
-          className="field min-h-[52px] min-w-0 flex-1 border-r-0 px-4"
+          className="field min-h-[52px] min-w-0 flex-1 px-4"
         />
         <button
           type="submit"
@@ -78,7 +79,7 @@ export default function Account() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [theme, setTheme] = useState(readThemeChoice);
+  const { choice: theme } = useTheme();
   const { data: me, error } = useQuery({ queryKey: ["me"], queryFn: getMe });
 
   const handleSignOut = async () => {
@@ -98,8 +99,12 @@ export default function Account() {
       <div className="mt-8 flex flex-col gap-10">
         {error ? (
           <p className="text-muted">Couldn't load your name.</p>
+        ) : me ? (
+          <NameForm me={me} />
         ) : (
-          me && <NameForm me={me} />
+          <Loading label="Loading your name">
+            <FieldBones />
+          </Loading>
         )}
 
         <fieldset>
@@ -112,7 +117,6 @@ export default function Account() {
                 aria-pressed={theme === option.value}
                 onClick={() => {
                   setThemeChoice(option.value);
-                  setTheme(option.value);
                 }}
                 className={cn(
                   "action",

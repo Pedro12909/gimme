@@ -102,7 +102,7 @@ function GuestTile({
                   href={shop.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline underline-offset-3 hover:text-ink"
+                  className="text-accent underline-offset-3 hover:underline"
                 >
                   {siteName(shop.link)}
                 </a>
@@ -112,7 +112,7 @@ function GuestTile({
         )}
         {mine ? (
           <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium text-accent">Yours</span>
+            <span className="font-semibold text-ink">Yours</span>
             <button
               type="button"
               className="action text-muted"

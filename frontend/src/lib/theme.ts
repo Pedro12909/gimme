@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 // The initial theme is applied by the inline script in index.html, before first paint.
 // Without a stored choice the app follows the device; a stored choice overrides it.
 const STORAGE_KEY = "gimme:theme";
@@ -26,4 +28,27 @@ export function setThemeChoice(choice: ThemeChoice) {
       ? window.matchMedia("(prefers-color-scheme: dark)").matches
       : choice === "dark";
   document.documentElement.classList.toggle("dark", dark);
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+const CHANGE_EVENT = "gimme:themechange";
+
+// Re-renders when the theme is changed here or, while following the device, by the device.
+// index.html's own listener updates the page first, as it was registered earlier.
+function subscribe(onChange: () => void) {
+  const query = window.matchMedia("(prefers-color-scheme: dark)");
+  window.addEventListener(CHANGE_EVENT, onChange);
+  query.addEventListener("change", onChange);
+  return () => {
+    window.removeEventListener(CHANGE_EVENT, onChange);
+    query.removeEventListener("change", onChange);
+  };
+}
+
+const snapshot = () =>
+  `${readThemeChoice()}:${document.documentElement.classList.contains("dark")}`;
+
+export function useTheme() {
+  const [choice, dark] = useSyncExternalStore(subscribe, snapshot).split(":");
+  return { choice: choice as ThemeChoice, dark: dark === "true" };
 }

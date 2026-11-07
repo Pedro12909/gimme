@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
+import { PageSkeleton } from "@/components/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageShell, Wordmark } from "@/components/page-shell";
 import { SendCodeForm } from "@/components/send-code-form";
@@ -52,7 +53,7 @@ export default function SignIn() {
 
   const destination = state?.from ?? "/lists";
 
-  if (isPending) return null;
+  if (isPending) return <PageSkeleton />;
   if (user) return <Navigate to={destination} replace />;
 
   const submitCode = async (value: string) => {
@@ -159,7 +160,7 @@ export default function SignIn() {
               }}
               aria-invalid={error !== undefined}
               aria-describedby={error ? "code-error" : undefined}
-              className="field mt-2 min-h-16 border-ink px-4 text-[32px] font-medium tracking-[0.2em]"
+              className="field mt-2 min-h-16 px-4 text-[32px] font-medium tracking-[0.2em]"
             />
             {error && (
               <p
@@ -187,18 +188,14 @@ export default function SignIn() {
                 Nothing yet?{" "}
                 <button
                   type="button"
-                  className="action text-ink disabled:text-muted"
+                  className="action disabled:text-muted"
                   onClick={resend}
                   disabled={cooldown > 0}
                 >
                   {cooldown > 0 ? `Send again in ${cooldown}s` : "Send again"}
                 </button>{" "}
                 or{" "}
-                <button
-                  type="button"
-                  className="action text-ink"
-                  onClick={changeEmail}
-                >
+                <button type="button" className="action" onClick={changeEmail}>
                   use another email
                 </button>
               </>

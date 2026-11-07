@@ -18,6 +18,8 @@ import {
 } from "@/lib/owner-api";
 import { ImageReadError, resizeImage } from "@/lib/resize-image";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { cn } from "@/lib/utils";
 
 const joinWords = (words: string[], last: string) =>
   words.length < 2
@@ -63,6 +65,14 @@ type Upload =
   | { kind: "uploading"; preview: string }
   | { kind: "uploaded"; preview: string; key: string }
   | { kind: "failed"; message: string };
+
+// The first image among dropped or pasted files
+const imageFile = (files: FileList | null | undefined) =>
+  Array.from(files ?? []).find((file) => file.type.startsWith("image/"));
+
+// Drags of text or links aren't photos and keep their usual behaviour
+const draggingFiles = (event: { dataTransfer: DataTransfer | null }) =>
+  event.dataTransfer?.types.includes("Files") ?? false;
 
 // Fields the preview can fill in; each only while it still holds what came from the link
 type AutoField = "title" | "vendor" | "price";
@@ -183,6 +193,7 @@ export function ItemEditor({
   const fileInput = useRef<HTMLInputElement>(null);
 
   const uploadPreview = "preview" in upload ? upload.preview : undefined;
+  const uploading = upload.kind === "uploading";
   useEffect(() => {
     if (uploadPreview) return () => URL.revokeObjectURL(uploadPreview);
   }, [uploadPreview]);
@@ -230,6 +241,87 @@ export function ItemEditor({
     }
   };
 
+  // Dropping a file or pasting an image does the same as "Upload a photo"
+  const takePhoto = (file: File | undefined) => {
+    if (uploading) return;
+    if (file) void choosePhoto(file);
+    else
+      setUpload({
+        kind: "failed",
+        message: "That isn't an image. Try a photo.",
+      });
+  };
+
+  // Drag events fire again for every child entered and left, so count to know when the
+  // file has really left the editor
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
+  const dropHandlers = {
+    onDragEnter: (event: React.DragEvent) => {
+      if (!draggingFiles(event)) return;
+      event.preventDefault();
+      dragDepth.current += 1;
+      setDragging(true);
+    },
+    onDragOver: (event: React.DragEvent) => {
+      if (!draggingFiles(event)) return;
+      // Without this the browser doesn't allow a drop
+      event.preventDefault();
+      event.dataTransfer.dropEffect = uploading ? "none" : "copy";
+    },
+    onDragLeave: (event: React.DragEvent) => {
+      if (!draggingFiles(event)) return;
+      dragDepth.current = Math.max(0, dragDepth.current - 1);
+      if (dragDepth.current === 0) setDragging(false);
+    },
+    onDrop: (event: React.DragEvent) => {
+      if (!draggingFiles(event)) return;
+      event.preventDefault();
+      dragDepth.current = 0;
+      setDragging(false);
+      takePhoto(imageFile(event.dataTransfer.files));
+    },
+  };
+
+  // The page-wide listeners below are set up once, so they reach the latest state through this
+  const takePhotoRef = useRef(takePhoto);
+  useEffect(() => {
+    takePhotoRef.current = takePhoto;
+  });
+
+  useEffect(() => {
+    // A file dropped just outside the editor would otherwise open in the tab, losing the page
+    const keepPage = (event: DragEvent) => {
+      if (draggingFiles(event)) event.preventDefault();
+    };
+
+    // An image pasted anywhere while the editor is open becomes the photo. Text pasted into
+    // a field still pastes as text, even when the clipboard also carries an image.
+    const onPaste = (event: ClipboardEvent) => {
+      const data = event.clipboardData;
+      const file = imageFile(data?.files);
+      if (!data || !file) return;
+      const inField = (event.target as Element | null)?.closest?.(
+        "input, textarea, [contenteditable]",
+      );
+      if (inField && data.types.includes("text/plain")) return;
+      event.preventDefault();
+      takePhotoRef.current(file);
+    };
+
+    window.addEventListener("dragover", keepPage);
+    window.addEventListener("drop", keepPage);
+    document.addEventListener("paste", onPaste);
+    return () => {
+      window.removeEventListener("dragover", keepPage);
+      window.removeEventListener("drop", keepPage);
+      document.removeEventListener("paste", onPaste);
+    };
+  }, []);
+
+  // Only worth mentioning where there's a mouse and a keyboard
+  const canDropOrPaste = useMediaQuery("(pointer: fine)");
+
   // A photo the owner uploaded before stays even if the link changes
   const keepsUpload = Boolean(item.imageKey) && !photoRemoved;
   const linkImage = photoRemoved
@@ -240,10 +332,10 @@ export function ItemEditor({
   const ownPhoto = values.photo.trim();
   const photoError = ownPhoto !== "" && !httpsOnly(ownPhoto);
   const imageUrl = uploadPreview || (!photoError && ownPhoto) || linkImage;
-  const uploading = upload.kind === "uploading";
 
-  const message =
-    upload.kind === "uploading"
+  const message = dragging
+    ? "Drop to use this photo"
+    : upload.kind === "uploading"
       ? "Uploading your photo…"
       : upload.kind === "failed"
         ? upload.message
@@ -320,7 +412,8 @@ export function ItemEditor({
   };
 
   return (
-    <div className="flex flex-col gap-[18px]">
+    // The whole editor takes a dropped photo, not just the photo row
+    <div className="flex flex-col gap-[18px]" {...dropHandlers}>
       <div className="flex items-baseline justify-between gap-4">
         <h2 id={headingId} className="section-title">
           Edit
@@ -330,7 +423,13 @@ export function ItemEditor({
         </button>
       </div>
 
-      <div className="flex items-center gap-3.5">
+      <div
+        className={cn(
+          "flex items-center gap-3.5 rounded-md",
+          dragging &&
+            "outline-2 outline-offset-4 outline-accent outline-dashed",
+        )}
+      >
         {/* A hairline, or a white photo would vanish into the white panel */}
         <TileSquare
           imageUrl={imageUrl}
@@ -345,7 +444,7 @@ export function ItemEditor({
           <div className="flex flex-wrap gap-x-4">
             <button
               type="button"
-              className="action min-h-8 text-ink"
+              className="action min-h-8"
               disabled={uploading}
               onClick={() => fileInput.current?.click()}
             >
@@ -354,7 +453,7 @@ export function ItemEditor({
             {!photoOpen && (
               <button
                 type="button"
-                className="action min-h-8 text-ink"
+                className="action min-h-8"
                 onClick={() => setPhotoOpen(true)}
               >
                 Use a link
@@ -363,7 +462,7 @@ export function ItemEditor({
             {imageUrl && !uploading && (
               <button
                 type="button"
-                className="action min-h-8 text-ink"
+                className="action min-h-8"
                 onClick={() => {
                   setUpload({ kind: "none" });
                   set("photo", "");
@@ -375,6 +474,9 @@ export function ItemEditor({
               </button>
             )}
           </div>
+          {canDropOrPaste && !dragging && !uploading && (
+            <p>You can also drop or paste a photo here.</p>
+          )}
           <input
             ref={fileInput}
             type="file"

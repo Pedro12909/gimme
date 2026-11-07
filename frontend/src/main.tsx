@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
+import { PageSkeleton } from "@/components/skeleton";
 import { loadConfig } from "@/config";
 import SharedList from "@/pages/SharedList";
 import NotFound from "@/pages/NotFound";
@@ -18,33 +19,39 @@ const page =
   });
 
 const router = createBrowserRouter([
-  { path: "/", lazy: page(() => import("@/pages/Landing")) },
-  { path: "/sign-in", lazy: page(() => import("@/pages/SignIn")) },
   {
-    lazy: page(() => import("@/pages/OwnerLayout")),
+    // Shown on first load while the page's code downloads
+    HydrateFallback: PageSkeleton,
     children: [
-      { path: "/lists", lazy: page(() => import("@/pages/Lists")) },
+      { path: "/", lazy: page(() => import("@/pages/Landing")) },
+      { path: "/sign-in", lazy: page(() => import("@/pages/SignIn")) },
       {
-        path: "/lists/:listId",
-        lazy: page(() => import("@/pages/ListDetail")),
+        lazy: page(() => import("@/pages/OwnerLayout")),
+        children: [
+          { path: "/lists", lazy: page(() => import("@/pages/Lists")) },
+          {
+            path: "/lists/:listId",
+            lazy: page(() => import("@/pages/ListDetail")),
+          },
+          {
+            path: "/lists/:listId/settings",
+            lazy: page(() => import("@/pages/ListSettings")),
+          },
+          {
+            path: "/lists/:listId/preview",
+            lazy: page(() => import("@/pages/ListPreview")),
+          },
+          { path: "/account", lazy: page(() => import("@/pages/Account")) },
+          {
+            path: "/share-target",
+            lazy: page(() => import("@/pages/ShareTarget")),
+          },
+        ],
       },
-      {
-        path: "/lists/:listId/settings",
-        lazy: page(() => import("@/pages/ListSettings")),
-      },
-      {
-        path: "/lists/:listId/preview",
-        lazy: page(() => import("@/pages/ListPreview")),
-      },
-      { path: "/account", lazy: page(() => import("@/pages/Account")) },
-      {
-        path: "/share-target",
-        lazy: page(() => import("@/pages/ShareTarget")),
-      },
+      { path: "/s/:token", Component: SharedList },
+      { path: "*", Component: NotFound },
     ],
   },
-  { path: "/s/:token", Component: SharedList },
-  { path: "*", Component: NotFound },
 ]);
 
 createRoot(document.getElementById("root")!).render(

@@ -82,7 +82,7 @@ export default function ShareTarget() {
                           to={`/lists/${list.listId}`}
                           state={{ addText }}
                           replace
-                          className="flex min-h-12 items-center text-[28px] leading-none font-bold uppercase [font-stretch:80%] [overflow-wrap:anywhere] underline-offset-4 hover:underline"
+                          className="flex min-h-12 items-center text-xl leading-tight font-semibold [overflow-wrap:anywhere] underline-offset-4 hover:underline"
                         >
                           {list.title}
                         </Link>

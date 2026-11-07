@@ -17,10 +17,14 @@ Wishlist web app at https://gimme.rtemis.dev. Owners (invite-only Cognito accoun
 
 ## UI rules
 
-All frontend work follows **design/SPEC.md** (the "Shelf" design). Read it before changing any UI. Reference screens are in `design/mockups/`. The non-negotiables:
+All frontend work follows **design/SPEC.md** (a Things 3–based look that replaced the earlier "Shelf" design). Read it before changing any UI. The mockups in `design/mockups/` still show Shelf: use them for layout and copy only, not colours or type. The non-negotiables:
 
-- Border radius 0 everywhere. No icon library (remove `lucide-react`); use words.
-- Actions are underlined text. The only boxed control is a form submit (1px ink border, no fill).
-- Archivo font. Uppercase condensed page titles. Tokens and colors come from the spec only; no stock shadcn grays.
-- Left-aligned layouts. Square product tiles in a grid with 2px gutters. Item state is shown on the tile.
+- Calm white page, flat: no gradients or card shadows; only bottom sheets get a soft shadow. Tokens, colours and radii come from the spec only (`index.css`); no stock shadcn grays.
+- Radii: 10px (`rounded-md`) for buttons, fields, tiles and panels; 8px (`rounded-sm`) for small bits; 14px (`rounded-lg`) for bottom sheet tops.
+- The device's system font, no web font. Sentence-case page titles (`.page-title`), nothing uppercase or condensed.
+- One blue accent for action, a yellow ★ only for "Want most", danger red for destructive actions and errors. Nothing else gets colour.
+- One primary action per screen is a filled blue `.submit` button. Every other action is blue `.action` text, underlined on hover only (quiet ones such as Undo can be muted). No icon library; use words.
+- Fields: grey fill, no border at rest. Don't put them on a grey surface or they disappear; panels and sheets use the page colour.
+- Left-aligned layouts. Square product tiles (white with a hairline edge for photos) in a spaced grid, not edge to edge. Item state is shown on the tile.
+- Loading uses the shimmering skeletons in `components/skeleton.tsx`, shaped like the content. Feedback is quiet text in place, not toasts.
 - Simple: no flashy buttons, badges or labels; the shortest UX path. If a pattern looks like a default AI-generated UI, don't use it.

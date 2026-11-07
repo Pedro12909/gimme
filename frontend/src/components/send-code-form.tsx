@@ -37,7 +37,7 @@ export function SendCodeForm({
       <label htmlFor="email" className="block text-[13px] text-muted">
         Your email
       </label>
-      <div className="mt-2 flex">
+      <div className="mt-2 flex gap-2">
         <input
           id="email"
           type="email"
@@ -49,7 +49,7 @@ export function SendCodeForm({
           onChange={(event) => setEmail(event.target.value)}
           aria-invalid={error !== undefined}
           aria-describedby="email-note"
-          className="field min-h-[52px] min-w-0 flex-1 border-r-0 px-4"
+          className="field min-h-[52px] min-w-0 flex-1 px-4"
         />
         <button
           type="submit"

@@ -9,6 +9,12 @@ import {
 } from "@/components/guest-list-view";
 import { PageShell, Wordmark } from "@/components/page-shell";
 import {
+  Bone,
+  Loading,
+  TileGridBones,
+  TitleBones,
+} from "@/components/skeleton";
+import {
   ApiError,
   getSharedList,
   unclaimItem,
@@ -116,7 +122,19 @@ export default function SharedList() {
     );
   }
 
-  if (!list) return <PageShell header={header}>{null}</PageShell>;
+  if (!list) {
+    return (
+      <PageShell header={header}>
+        <Loading label="Loading the list">
+          <TitleBones />
+          <Bone className="mt-4 h-3.5 w-full max-w-[420px]" />
+          <div className="mt-8">
+            <TileGridBones />
+          </div>
+        </Loading>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell header={header}>
@@ -142,7 +160,7 @@ export default function SharedList() {
               <span className="inline-flex gap-x-4">
                 <button
                   type="button"
-                  className="action text-ink"
+                  className="action"
                   onClick={() =>
                     setClaims(
                       claims === "hidden"
@@ -160,7 +178,7 @@ export default function SharedList() {
                 {claims === "asking" && (
                   <button
                     type="button"
-                    className="action text-ink"
+                    className="action"
                     onClick={() => setClaims("hidden")}
                   >
                     Keep them hidden

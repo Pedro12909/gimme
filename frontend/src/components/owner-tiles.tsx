@@ -65,7 +65,7 @@ function OwnerTile({
           // No long-press photo menu on phones: a long press picks the tile up
           "block w-full touch-manipulation select-none [-webkit-touch-callout:none]",
           sortable && "cursor-grab active:cursor-grabbing",
-          editing && "outline outline-1 outline-offset-4 outline-ink",
+          editing && "rounded-md outline-2 outline-offset-4 outline-accent",
         )}
       >
         <TileSquare

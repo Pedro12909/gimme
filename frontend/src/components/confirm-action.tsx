@@ -20,7 +20,7 @@ export function ConfirmAction({
   destructive?: boolean;
 }) {
   const [asking, setAsking] = useState(false);
-  const tone = destructive && "text-accent";
+  const tone = destructive && "text-danger";
 
   if (!asking) {
     return (

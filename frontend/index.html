@@ -36,6 +36,53 @@
     />
     <meta name="twitter:card" content="summary_large_image" />
     <title>gimme</title>
+    <!-- Layout for the loading skeleton below, which shows before the app's code arrives.
+         Mirrors PageSkeleton (components/skeleton.tsx); the .bone style comes from index.css. -->
+    <style>
+      .boot {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+      .boot-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 56px;
+      }
+      .boot .bone {
+        display: block;
+        border-radius: 8px;
+      }
+      .boot-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px 12px;
+        margin-top: 32px;
+      }
+      .boot-grid .bone {
+        aspect-ratio: 1;
+        border-radius: 10px;
+      }
+      @media (width >= 640px) {
+        .boot {
+          padding: 0 32px;
+        }
+        .boot-header {
+          min-height: 60px;
+        }
+        .boot-grid {
+          grid-template-columns: repeat(3, 1fr);
+          gap: 24px 20px;
+        }
+      }
+      @media (width >= 1024px) {
+        .boot-grid {
+          grid-template-columns: repeat(4, 1fr);
+          gap: 32px 20px;
+        }
+      }
+    </style>
     <script>
       // Apply the theme before first paint: a stored choice wins, otherwise follow the device
       (() => {
@@ -57,7 +104,29 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- React replaces this skeleton as soon as it renders -->
+    <div id="root">
+      <div class="boot" role="status" aria-label="Loading">
+        <div class="boot-header">
+          <span class="bone" style="width: 56px; height: 16px"></span>
+          <span class="bone" style="width: 96px; height: 16px"></span>
+        </div>
+        <span
+          class="bone"
+          style="margin-top: 16px; width: 75%; max-width: 400px; height: 36px"
+        ></span>
+        <span
+          class="bone"
+          style="margin-top: 12px; width: 176px; height: 14px"
+        ></span>
+        <div class="boot-grid">
+          <span class="bone"></span><span class="bone"></span
+          ><span class="bone"></span><span class="bone"></span>
+          <span class="bone"></span><span class="bone"></span
+          ><span class="bone"></span><span class="bone"></span>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

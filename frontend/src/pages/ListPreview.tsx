@@ -8,6 +8,12 @@ import {
   type GuestActions,
 } from "@/components/guest-list-view";
 import { BackLink, PageShell } from "@/components/page-shell";
+import {
+  Bone,
+  Loading,
+  TileGridBones,
+  TitleBones,
+} from "@/components/skeleton";
 import type { SharedItem } from "@/lib/guest-api";
 import { getList, getMe } from "@/lib/owner-api";
 import { useDocumentTitle } from "@/lib/use-document-title";
@@ -43,7 +49,17 @@ export default function ListPreview() {
   if (!list) {
     return (
       <PageShell header={header}>
-        {error && <p className="text-muted">Couldn't load this list.</p>}
+        {error ? (
+          <p className="text-muted">Couldn't load this list.</p>
+        ) : (
+          <Loading label="Loading the list">
+            <TitleBones />
+            <Bone className="mt-4 h-3.5 w-full max-w-[420px]" />
+            <div className="mt-8">
+              <TileGridBones />
+            </div>
+          </Loading>
+        )}
       </PageShell>
     );
   }

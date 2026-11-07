@@ -30,11 +30,9 @@ function Choice<T extends string>({
   const current = options.find((option) => option.value === value);
 
   return (
-    <label className="action relative gap-1 no-underline">
-      <span className="text-muted">{label}:</span>
-      <span className="underline underline-offset-3">
-        {current?.label ?? options[0].label}
-      </span>
+    <label className="action relative gap-1">
+      <span className="font-normal text-muted">{label}:</span>
+      <span>{current?.label ?? options[0].label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
@@ -230,7 +228,7 @@ export function ListControls({
           </span>
           <button
             type="button"
-            className="action text-ink"
+            className="action"
             onClick={() => {
               onChange(clearFilters(view));
               setSearching(false);

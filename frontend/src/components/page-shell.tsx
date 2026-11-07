@@ -1,4 +1,5 @@
 import { Link, NavLink } from "react-router";
+import { setThemeChoice, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 const GITHUB_URL = "https://github.com/Pedro12909/gimme";
@@ -47,9 +48,25 @@ export function PageShell({
           className="underline underline-offset-3 hover:text-ink"
         >
           Source on GitHub
-        </a>
+        </a>{" "}
+        · <ThemeToggle />
       </footer>
     </div>
+  );
+}
+
+// Flips between light and dark, and remembers it on this device. Account also offers
+// following the device.
+function ThemeToggle() {
+  const { dark } = useTheme();
+  return (
+    <button
+      type="button"
+      className="underline underline-offset-3 hover:text-ink"
+      onClick={() => setThemeChoice(dark ? "light" : "dark")}
+    >
+      {dark ? "Light theme" : "Dark theme"}
+    </button>
   );
 }
 

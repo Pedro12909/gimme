@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FieldBones, Loading } from "@/components/skeleton";
 import { ConfirmAction } from "@/components/confirm-action";
 import { BackLink, OwnerHeader, PageShell } from "@/components/page-shell";
 import { rememberOwnShareTokens } from "@/lib/guest-storage";
@@ -111,7 +112,7 @@ function SettingsForm({ list }: { list: ListWithItems }) {
           {values.eventDate && (
             <button
               type="button"
-              className="action min-h-8 self-start text-ink"
+              className="action min-h-8 self-start"
               onClick={() => set("eventDate", "")}
             >
               Clear the date
@@ -235,6 +236,13 @@ export default function ListSettings() {
       {error && <p className="mt-6 text-muted">Couldn't load this list.</p>}
       {/* Mounted once the list is here, so the fields start with its values */}
       {list && <SettingsForm list={list} />}
+      {!list && !error && (
+        <Loading label="Loading settings" className="mt-6 flex flex-col gap-4">
+          <FieldBones />
+          <FieldBones />
+          <FieldBones />
+        </Loading>
+      )}
     </PageShell>
   );
 }

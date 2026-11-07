@@ -7,6 +7,12 @@ import { ListControls } from "@/components/list-controls";
 import { Modal } from "@/components/modal";
 import { OwnerTiles } from "@/components/owner-tiles";
 import { BackLink, OwnerHeader, PageShell } from "@/components/page-shell";
+import {
+  Bone,
+  Loading,
+  TileGridBones,
+  TitleBones,
+} from "@/components/skeleton";
 import { TileGrid, TileSquare } from "@/components/tile";
 import { formatEventDate } from "@/lib/event-date";
 import { rememberOwnShareTokens } from "@/lib/guest-storage";
@@ -285,6 +291,15 @@ export default function ListDetail() {
 
     return (
       <PageShell header={header}>
+        {!error && (
+          <Loading label="Loading this list">
+            <TitleBones />
+            <Bone className="mt-6 h-[52px] w-full rounded-md sm:mt-8" />
+            <div className="mt-8">
+              <TileGridBones />
+            </div>
+          </Loading>
+        )}
         {error && (
           <p className="text-muted">
             {notFound
@@ -293,7 +308,7 @@ export default function ListDetail() {
             {!notFound && (
               <button
                 type="button"
-                className="action text-ink"
+                className="action"
                 onClick={() => refetch()}
               >
                 Try again
@@ -331,7 +346,7 @@ export default function ListDetail() {
   const adding = addByLink.isPending && (
     <li aria-live="polite">
       <TileSquare veil="Adding…" />
-      <p className="pt-2 pl-3 text-[13px] text-muted sm:pl-0">
+      <p className="pt-2 text-[13px] text-muted">
         {siteName(addByLink.variables.url)}
       </p>
     </li>
@@ -454,7 +469,7 @@ export default function ListDetail() {
                     submitLink(text);
                   }
                 }}
-                className={cn("field min-h-[52px] px-4", empty && "border-ink")}
+                className="field min-h-[52px] px-4"
               />
               {notice && (
                 <p role="status" className="mt-2 text-[13px] font-medium">
@@ -468,7 +483,7 @@ export default function ListDetail() {
             <>
               <div
                 aria-hidden="true"
-                className="-mx-4 mt-5 grid grid-cols-2 gap-0.5 sm:mx-0 sm:mt-8 sm:grid-cols-3 lg:grid-cols-4"
+                className="mt-5 grid grid-cols-2 gap-x-3 sm:mt-8 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4"
               >
                 <TileSquare />
                 <TileSquare />
@@ -533,7 +548,7 @@ export default function ListDetail() {
         {panelOpen && (
           <aside
             aria-labelledby={editorHeadingId}
-            className="w-[440px] shrink-0 border-l border-hairline bg-field"
+            className="w-[440px] shrink-0 border-l border-hairline bg-ground"
           >
             {/* Fits the screen below the header, and stays in view while the list scrolls */}
             <div className="sticky top-0 max-h-[calc(100svh-3.75rem)] overflow-y-auto px-7 pt-7 pb-8">

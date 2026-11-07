@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { OwnerHeader, PageShell } from "@/components/page-shell";
+import { Bone, Loading } from "@/components/skeleton";
 import { TileSquare } from "@/components/tile";
 import { formatEventDate, isUpcoming } from "@/lib/event-date";
 import { rememberOwnShareTokens } from "@/lib/guest-storage";
@@ -96,7 +97,7 @@ export default function Lists() {
             if (title.trim()) create.mutate();
           }}
         >
-          <div className="flex">
+          <div className="flex gap-2">
             <label htmlFor="new-list" className="sr-only">
               Name a new list
             </label>
@@ -109,7 +110,7 @@ export default function Lists() {
               maxLength={100}
               autoComplete="off"
               enterKeyHint="go"
-              className="field min-h-[52px] min-w-0 flex-1 border-r-0 px-4"
+              className="field min-h-[52px] min-w-0 flex-1 px-4"
             />
             <button
               type="submit"
@@ -130,7 +131,7 @@ export default function Lists() {
               Guests will see whose list it is once you add your name in{" "}
               <Link
                 to="/account"
-                className="text-ink underline underline-offset-3"
+                className="text-accent underline-offset-3 hover:underline"
               >
                 Account
               </Link>
@@ -143,48 +144,62 @@ export default function Lists() {
       {error ? (
         <p className="mt-12 text-muted">
           Couldn't load your lists.{" "}
-          <button
-            type="button"
-            className="action text-ink"
-            onClick={() => refetch()}
-          >
+          <button type="button" className="action" onClick={() => refetch()}>
             Try again
           </button>
         </p>
+      ) : isPending ? (
+        <Loading
+          label="Loading your lists"
+          className="mt-10 flex flex-col gap-10 sm:mt-12"
+        >
+          {Array.from({ length: 3 }, (_, index) => (
+            <div
+              key={index}
+              className="flex flex-wrap items-end gap-x-7 gap-y-3"
+            >
+              <div className="grid w-full grid-cols-3 gap-2 sm:w-[400px]">
+                {Array.from({ length: PREVIEW_TILES }, (_, tile) => (
+                  <Bone key={tile} className="aspect-square rounded-md" />
+                ))}
+              </div>
+              <div className="flex flex-col gap-2.5 pb-1">
+                <Bone className="h-5 w-44" />
+                <Bone className="h-3.5 w-36" />
+              </div>
+            </div>
+          ))}
+        </Loading>
       ) : (
-        !isPending && (
-          <ul className="mt-10 flex flex-col gap-10 sm:mt-12">
-            {sorted.map((list) => {
-              const images = list.previewImages ?? [];
-              return (
-                <li key={list.listId}>
-                  <Link
-                    to={`/lists/${list.listId}`}
-                    className="group flex flex-wrap items-end gap-x-7 gap-y-3"
+        <ul className="mt-10 flex flex-col gap-10 sm:mt-12">
+          {sorted.map((list) => {
+            const images = list.previewImages ?? [];
+            return (
+              <li key={list.listId}>
+                <Link
+                  to={`/lists/${list.listId}`}
+                  className="group flex flex-wrap items-end gap-x-7 gap-y-3"
+                >
+                  {/* A few photos make lists recognisable without reading */}
+                  <span
+                    aria-hidden="true"
+                    className="grid w-full grid-cols-3 gap-2 sm:w-[400px]"
                   >
-                    {/* A few photos make lists recognisable without reading */}
-                    <span
-                      aria-hidden="true"
-                      className="grid w-full grid-cols-3 gap-0.5 sm:w-[400px]"
-                    >
-                      {Array.from({ length: PREVIEW_TILES }, (_, index) => (
-                        <TileSquare key={index} imageUrl={images[index]} />
-                      ))}
+                    {Array.from({ length: PREVIEW_TILES }, (_, index) => (
+                      <TileSquare key={index} imageUrl={images[index]} />
+                    ))}
+                  </span>
+                  <span className="flex flex-col gap-1.5 pb-1">
+                    <span className="text-xl leading-tight font-semibold [overflow-wrap:anywhere] underline-offset-4 group-hover:underline">
+                      {list.title}
                     </span>
-                    <span className="flex flex-col gap-1.5 pb-1">
-                      <span className="text-[28px] leading-none font-bold uppercase [font-stretch:80%] [overflow-wrap:anywhere] underline-offset-4 group-hover:underline">
-                        {list.title}
-                      </span>
-                      <span className="text-sm text-muted">
-                        {listMeta(list)}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )
+                    <span className="text-sm text-muted">{listMeta(list)}</span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </PageShell>
   );

@@ -19,8 +19,9 @@ export function TileSquare({
   return (
     <span
       className={cn(
-        "relative block aspect-square overflow-hidden",
-        showImage ? "bg-photo" : "bg-tile",
+        "relative block aspect-square overflow-hidden rounded-md",
+        // A hairline edge keeps white products visible on a white page
+        showImage ? "border border-hairline bg-photo" : "bg-tile",
         className,
       )}
     >
@@ -33,7 +34,7 @@ export function TileSquare({
           // Shops don't need to know which list (or share link) the image was viewed from
           referrerPolicy="no-referrer"
           onError={() => setFailedUrl(imageUrl)}
-          className="size-full object-contain"
+          className="size-full object-contain p-[9%]"
         />
       )}
       {veil && (
@@ -48,8 +49,7 @@ export function TileSquare({
   );
 }
 
-// Name, then "shop · price", then "Want most". Phones run the grid edge to edge, so the
-// caption keeps its own left padding there.
+// Name, then "shop · price", then "Want most" with its yellow star.
 export function ItemCaption({
   item,
   muted = false,
@@ -64,7 +64,7 @@ export function ItemCaption({
   const meta = itemMeta(item);
 
   return (
-    <div className="pt-2 pr-2.5 pl-3 sm:pt-2.5 sm:pr-3 sm:pl-0">
+    <div className="pt-2 pr-1 sm:pt-2.5 sm:pr-2">
       <p
         className={cn(
           "line-clamp-3 text-sm leading-[1.3] font-medium sm:text-[15px]",
@@ -79,7 +79,10 @@ export function ItemCaption({
         </p>
       )}
       {item.starred && (
-        <p className="mt-0.5 text-xs font-medium text-accent sm:mt-1 sm:text-[13px]">
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted sm:mt-1 sm:text-[13px]">
+          <span aria-hidden="true" className="text-star">
+            ★
+          </span>
           Want most
         </p>
       )}
@@ -88,7 +91,7 @@ export function ItemCaption({
   );
 }
 
-// 2 columns on phones (edge to edge), 3 from 640px, 4 from 1024px unless `narrow`
+// 2 columns on phones, 3 from 640px, 4 from 1024px unless `narrow`
 export function TileGrid({
   narrow = false,
   children,
@@ -100,7 +103,7 @@ export function TileGrid({
   return (
     <ul
       className={cn(
-        "-mx-4 grid grid-cols-2 gap-x-0.5 gap-y-6 sm:mx-0 sm:grid-cols-3 lg:gap-y-8",
+        "grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:gap-y-8",
         !narrow && "lg:grid-cols-4",
       )}
     >
