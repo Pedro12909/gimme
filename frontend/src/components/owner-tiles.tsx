@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { generateKeyBetween } from "fractional-indexing";
+import { useState } from "react";
 import {
   ItemCaption,
   ownerBadge,
@@ -125,6 +126,13 @@ export function OwnerTiles({
     }),
   );
 
+  // The order just dropped, shown until `items` arrives in it. The list's new order is saved
+  // to the query cache a moment after the drop, and dnd-kit clears its offsets at once, so
+  // without this every moved tile flashes back to its old place for a frame.
+  const [dropped, setDropped] = useState<{ from: Item[]; order: Item[] }>();
+  if (dropped && dropped.from !== items) setDropped(undefined);
+  const shown = dropped && dropped.from === items ? dropped.order : items;
+
   const label = (id: string | number) => {
     const item = items.find((candidate) => candidate.itemId === id);
     return item ? itemLabel(item) : "Item";
@@ -157,6 +165,7 @@ export function OwnerTiles({
         reordered[to - 1]?.position ?? null,
         reordered[to + 1]?.position ?? null,
       );
+      setDropped({ from: items, order: reordered });
       onMove(String(active.id), position);
     } catch {
       onMoveFailed();
@@ -177,11 +186,11 @@ export function OwnerTiles({
       }}
     >
       <SortableContext
-        items={items.map((item) => item.itemId)}
+        items={shown.map((item) => item.itemId)}
         strategy={rectSortingStrategy}
       >
         <TileGrid>
-          {items.map((item) => (
+          {shown.map((item) => (
             <OwnerTile
               key={item.itemId}
               item={item}
