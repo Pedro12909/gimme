@@ -7,11 +7,13 @@ export function Sheet({
   open,
   onClose,
   labelledBy,
+  initialFocus,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   labelledBy: string;
+  initialFocus?: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
 }) {
   const [offset, setOffset] = useState(0);
@@ -46,6 +48,7 @@ export function Sheet({
       open={open}
       onClose={onClose}
       labelledBy={labelledBy}
+      initialFocus={initialFocus}
       className="animate-sheet-up inset-x-0 top-auto bottom-0 max-h-[92svh] w-full max-w-none overflow-y-auto rounded-t-lg bg-ground shadow-sheet"
     >
       <div

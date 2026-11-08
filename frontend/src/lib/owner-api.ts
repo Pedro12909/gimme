@@ -49,7 +49,8 @@ export type ItemsView = "all" | "want" | "got";
 export type Item = {
   listId: string;
   itemId: string;
-  url: string;
+  // Items can be just a name, with no link
+  url?: string;
   title?: string;
   note?: string;
   imageUrl?: string;
@@ -78,7 +79,8 @@ export type ListInput = {
 };
 // Empty optional fields are removed by the API
 export type ItemInput = {
-  url: string;
+  // "" clears it on update; an item keeps a title or a url
+  url?: string;
   title: string;
   note: string;
   imageUrl: string;
@@ -91,13 +93,6 @@ export type ItemInput = {
   imageUpload?: string;
   starred: boolean;
   got: boolean;
-};
-
-export type LinkPreview = {
-  title?: string;
-  imageUrl?: string;
-  price?: string;
-  vendor?: string;
 };
 
 const listPath = (listId: string) => `/lists/${encodeURIComponent(listId)}`;
@@ -126,7 +121,8 @@ export const setDefaultList = (listId: string) =>
 export const deleteList = (listId: string) =>
   ownerRequest<void>(listPath(listId), { method: "DELETE" });
 
-export const addItem = (listId: string, input: ItemInput) =>
+// Only the fields given are stored: a name, a link, or both
+export const addItem = (listId: string, input: Partial<ItemInput>) =>
   ownerRequest<Item>(`${listPath(listId)}/items`, json("POST", input));
 
 // Only the fields sent change
@@ -174,11 +170,6 @@ export async function uploadImage(listId: string, image: Blob) {
 
   return key;
 }
-
-// `text` is what was shared or pasted along with the link, e.g. "Kindle Paperwhite https://amzn.eu/d/abc".
-// It names the item when the shop's page can't be read.
-export const previewLink = (url: string, text?: string) =>
-  ownerRequest<LinkPreview>("/preview", json("POST", { url, text }));
 
 // The owner's own details; guests see the display name on shared lists ("Pedro's list")
 export type Me = { displayName?: string };

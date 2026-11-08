@@ -14,6 +14,7 @@ Wishlist web app at https://gimme.rtemis.dev. Owners (invite-only Cognito accoun
 - The owner Lambda must never get access to the Claims table. Claim privacy is enforced by IAM.
 - Guests are identified only by the share token in the path, and never send a listId.
 - Only a hash of the claim secret is stored. The secret lives in the guest's localStorage.
+- An item has a name, a link, or both (`title` or `url`); the owner Lambda refuses one with neither, on create and on update. Adding never reads the shop (`/preview` is no longer called).
 - Items are never moved between lists, only copied (the copy is unclaimed). A move would silently undo a guest's claim, and the owner can't see claims. A copied uploaded photo gets its own S3 key, because deleting an item deletes its photo.
 - Every owner has at least one list, and exactly one has `isDefault: true` (Lists table). `ensureDefaultList` in the owner Lambda makes the first list and fixes up a missing default. Changing the default is one transaction, and deleting the last list is refused (409 `LAST_LIST`).
 
@@ -28,6 +29,7 @@ All frontend work follows **design/home-redesign.md** (direction C, design syste
 - The device's system font, no web font. Sentence-case titles (`.page-title`), nothing uppercase or condensed.
 - Icons come only from `components/icon.tsx` (no icon library). Icon buttons (`IconButton`) always have `aria-label` and a tooltip. Options live in menus (`components/menu.tsx`), not rows of text buttons. One filled ink `.submit` per screen at most.
 - Deleting is two steps in place (`useTwoStep`: "Remove?" in danger red, a second press within 4s). No modals for confirming.
+- Adding goes through the composer (`components/composer.tsx`, design/add-item.md): the + button, N, or a link pasted outside a field. ⌘K stays with search.
 - Item edits save themselves (debounced, flushed on blur and close), with a quiet "Saved". There's no Save button in the panel.
 - Square tiles on a white photo ground with a hairline edge. State is shown as a badge, and Got it / Taken also fade the tile.
 - Loading uses the shimmering skeletons in `components/skeleton.tsx`, shaped like the content. Feedback is quiet text in place, not toasts.

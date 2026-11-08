@@ -408,10 +408,20 @@
   transform-origin: bottom left;
   animation: menu-in-up 0.14s ease-out;
 }
+@utility animate-composer-in {
+  transform-origin: 50% 0;
+  animation: composer-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
 @utility animate-sheet-up {
   animation: slide-in-up 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+@keyframes composer-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
 @keyframes fade-in {
   from {
     opacity: 0;

@@ -22,6 +22,7 @@ export function Menu({
   side = "bottom",
   className,
   label,
+  onOpenChange,
 }: {
   // The button that opens it; given the props it needs
   trigger: (props: {
@@ -38,8 +39,16 @@ export function Menu({
   side?: "top" | "bottom";
   className?: string;
   label?: string;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const onOpenChangeRef = useRef(onOpenChange);
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  });
+  useEffect(() => {
+    onOpenChangeRef.current?.(open);
+  }, [open]);
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);

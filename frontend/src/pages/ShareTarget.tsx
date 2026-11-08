@@ -35,7 +35,8 @@ export default function ShareTarget() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const link = sharedLink(params);
-  // Added on the list the same way as a pasted message: the link, plus words to name it
+  // Opens the list's composer prefilled, the same as a pasted message: the link, plus words
+  // to name it. Nothing is added until the owner presses Enter.
   const addText = link && `${sharedWords(params)} ${link}`.trim();
 
   const { data, error } = useLists();

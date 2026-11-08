@@ -5,7 +5,8 @@ export { ApiError } from "@/lib/http";
 
 export type SharedItem = {
   itemId: string;
-  url: string;
+  // Items can be just a name
+  url?: string;
   title?: string;
   note?: string;
   imageUrl?: string;

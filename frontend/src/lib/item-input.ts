@@ -1,5 +1,5 @@
 import { safeHref } from "@/lib/links";
-import type { ItemInput, LinkPreview } from "@/lib/owner-api";
+import type { ItemInput } from "@/lib/owner-api";
 
 // Limits match the owner Lambda's validation
 export const ITEM_LIMITS = {
@@ -53,19 +53,20 @@ export function slugName(url: string) {
   }
 }
 
-// A new item from a pasted link and whatever its preview found
-export function newItemInput(url: string, preview?: LinkPreview): ItemInput {
+// A new item from the composer: a name, maybe a link, maybe Want most. Nothing is read from
+// the shop; the rest is added later in the item panel.
+export function newItemInput({
+  title,
+  url,
+  starred,
+}: {
+  title: string;
+  url?: string;
+  starred: boolean;
+}): Partial<ItemInput> {
   return {
-    url,
-    title: preview?.title?.trim().slice(0, ITEM_LIMITS.title) || slugName(url),
-    imageUrl: httpsOnly(preview?.imageUrl),
-    price: preview?.price?.trim().slice(0, ITEM_LIMITS.price) ?? "",
-    vendor: preview?.vendor?.trim().slice(0, ITEM_LIMITS.vendor) ?? "",
-    note: "",
-    size: "",
-    alternatives: [],
-    tags: [],
-    starred: false,
-    got: false,
+    title: title.trim().slice(0, ITEM_LIMITS.title),
+    ...(url && { url }),
+    ...(starred && { starred: true }),
   };
 }

@@ -20,13 +20,12 @@ import {
 } from "@/components/menu";
 import { OwnerTiles } from "@/components/owner-tiles";
 import { SearchBox } from "@/components/search-box";
+import { Composer, type ComposerPrefill } from "@/components/composer";
 import { Sheet } from "@/components/sheet";
 import { Bone, Loading, TileGridBones } from "@/components/skeleton";
-import { TileGrid, TileSquare } from "@/components/tile";
 import { useTwoStep } from "@/components/two-step";
 import { rememberOwnShareTokens } from "@/lib/guest-storage";
 import { ApiError } from "@/lib/http";
-import { extractLink, newItemInput } from "@/lib/item-input";
 import { sortByPosition } from "@/lib/item-order";
 import {
   collectTags,
@@ -38,14 +37,11 @@ import {
   type GroupBy,
   type SortKey,
 } from "@/lib/item-view";
-import { safeHref, siteName } from "@/lib/links";
-import { MAX_ITEMS_PER_LIST } from "@/lib/limits";
+import { FULL_NOTICE, MAX_ITEMS_PER_LIST } from "@/lib/limits";
 import {
-  addItem,
   deleteList,
   moveItem,
   newShareLink,
-  previewLink,
   setDefaultList,
   shareUrl,
   updateList,
@@ -56,11 +52,9 @@ import {
   type ListWithItems,
 } from "@/lib/owner-api";
 import {
-  addItemToCache,
   listKey,
   listPath,
   listsKey,
-  refreshCounts,
   useList,
   useLists,
   useViewItems,
@@ -81,11 +75,9 @@ const viewFromPath = (pathname: string) =>
     (view) => VIEW_PATHS[view] === pathname,
   );
 
-const FULL_NOTICE = `This list has ${MAX_ITEMS_PER_LIST} items, the most it can hold. Remove one to add another.`;
-
 const EMPTY: Record<ItemsView | "list", string> = {
-  list: "Nothing here yet. Copy a product link from any shop and paste it on this page.",
-  all: "Nothing here yet. Copy a product link from any shop and paste it on this page.",
+  list: "Nothing here yet. Add something with +.",
+  all: "Nothing here yet. Add something with +.",
   want: "No items marked Want most.",
   got: "Nothing marked Got it yet.",
 };
@@ -488,11 +480,17 @@ function Screen({
     }
   }, [selectedId, selected, query.isSuccess, query.isFetching, navigate]);
 
-  // Escape closes the panel (menus close themselves first)
+  // Escape closes the panel (menus and dialogs, like the composer, close themselves first)
   useEffect(() => {
     if (!selectedId || !wide) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) close();
+      if (
+        event.key === "Escape" &&
+        !event.defaultPrevented &&
+        !document.querySelector("dialog[open]")
+      ) {
+        close();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -508,84 +506,83 @@ function Screen({
       : (target?.itemCount ?? 0) >= MAX_ITEMS_PER_LIST;
   const [notice, setNotice] = useState<string>();
 
-  const addByLink = useMutation({
-    mutationFn: async ({ url, text }: { url: string; text?: string }) => {
-      // A shop that blocks the preview still gets an item, named from its link
-      const preview = await previewLink(url, text).catch(() => undefined);
-      return addItem(targetListId!, newItemInput(url, preview));
-    },
-    onSuccess: (item) => {
-      addItemToCache(queryClient, item);
-      refreshCounts(queryClient);
-      setView((current) => ({ ...current, query: "" }));
-      if (selection.kind === "list" || selection.view === "all") {
-        select(item.itemId);
-      } else {
-        // Want most and Got it wouldn't show it, so open it in its list
-        navigate(
-          `${listPath(item.listId, item.listId === defaultListId)}?item=${encodeURIComponent(item.itemId)}`,
-        );
-      }
-    },
-    onError: (err) =>
-      setNotice(
-        err instanceof ApiError && err.status === 409
-          ? FULL_NOTICE
-          : "Couldn't add that link. Try again.",
-      ),
-  });
+  // The composer: closed when undefined. It opens from the + button, the N key, a link
+  // pasted outside any field, or a link shared into the app, and never adds on its own.
+  const [composer, setComposer] = useState<{ prefill?: ComposerPrefill }>();
+  const openComposer = (prefill?: ComposerPrefill) =>
+    setComposer((current) => current ?? { prefill });
 
-  const add = (text: string) => {
-    if (addByLink.isPending) return;
-    if (full) {
-      setNotice(FULL_NOTICE);
-      return;
+  // ⌘Enter in the composer: the new item opens in the panel, in its own list when this
+  // screen wouldn't show it
+  const openAdded = (item: Item) => {
+    setComposer(undefined);
+    const shownHere =
+      selection.kind === "list"
+        ? item.listId === listId
+        : selection.view === "all" ||
+          (selection.view === "want" && item.starred);
+    if (shownHere) {
+      select(item.itemId);
+    } else {
+      navigate(
+        `${listPath(item.listId, item.listId === defaultListId)}?item=${encodeURIComponent(item.itemId)}`,
+      );
     }
-    const url = extractLink(text);
-    if (!safeHref(url) || !targetListId) {
-      setNotice("Paste a full link, starting with https://");
-      return;
-    }
-    setNotice(undefined);
-    // The words around the link, if any, help name it when the shop's page can't be read
-    addByLink.mutate({ url, text: text.trim() === url ? undefined : text });
   };
 
-  // For now (until the add button is designed), a product link pasted anywhere outside a
-  // text field adds it. The item panel handles pasted photos first.
-  const addRef = useRef(add);
+  // Typing elsewhere, a dialog or a menu open: the shortcuts stand aside
+  const busyElsewhere = (target: EventTarget | null) =>
+    Boolean(
+      (target as Element | null)?.closest?.(
+        "input, textarea, select, [contenteditable]",
+      ) || document.querySelector("dialog[open], [role=menu]"),
+    );
+
   useEffect(() => {
-    addRef.current = add;
-  });
-  useEffect(() => {
-    const onPaste = (event: ClipboardEvent) => {
-      if (event.defaultPrevented) return;
-      const inField = (event.target as Element | null)?.closest?.(
-        "input, textarea, [contenteditable]",
-      );
-      const text = event.clipboardData?.getData("text/plain") ?? "";
-      if (inField || !/https?:\/\/\S+/.test(text)) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== "n" ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        busyElsewhere(event.target)
+      ) {
+        return;
+      }
       event.preventDefault();
-      addRef.current(text);
+      openComposer();
     };
+    // A link pasted outside any field opens the composer with it; the item panel handles
+    // pasted photos first
+    const onPaste = (event: ClipboardEvent) => {
+      if (event.defaultPrevented || busyElsewhere(event.target)) return;
+      const text = event.clipboardData?.getData("text/plain") ?? "";
+      if (!/https?:\/\/\S+/.test(text)) return;
+      event.preventDefault();
+      openComposer({ text });
+    };
+    window.addEventListener("keydown", onKey);
     window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("paste", onPaste);
+    };
   }, []);
 
-  // A link shared into gimme from another app (see ShareTarget) is added on arrival
+  // A link shared into gimme from another app (see ShareTarget) opens the composer with it
   const arrival = location.state as {
     addText?: string;
     rename?: boolean;
   } | null;
   const handledShare = useRef(false);
   useEffect(() => {
-    if (!arrival?.addText || handledShare.current || !targetListId) return;
+    if (!arrival?.addText || handledShare.current) return;
     handledShare.current = true;
-    // So a refresh doesn't add it again
+    // So a refresh doesn't open it again
     navigate(location.pathname, { replace: true, state: null });
-    add(arrival.addText);
+    openComposer({ text: arrival.addText });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
-  }, [arrival?.addText, targetListId]);
+  }, [arrival?.addText]);
 
   // A list made a moment ago opens with its name ready to type
   const [renaming, setRenaming] = useState(arrival?.rename === true);
@@ -673,27 +670,20 @@ function Screen({
     );
   }
 
-  const adding = addByLink.isPending && (
-    <li aria-live="polite">
-      <TileSquare />
-      <p className="truncate pt-2.5 text-[13px] text-muted">
-        Adding from {siteName(addByLink.variables.url)}…
-      </p>
-    </li>
-  );
-
-  const renderTiles = (group: Item[], withAdding = false) => (
+  const renderTiles = (group: Item[]) => (
     <OwnerTiles
       items={group}
       sortable={sortable}
       selectedId={selectedId}
-      onSelect={(item) => select(item.itemId)}
+      // A tile still being saved has nothing to open yet
+      onSelect={(item) =>
+        !item.itemId.startsWith("adding-") && select(item.itemId)
+      }
       onMove={(itemId, position) => {
         setNotice(undefined);
         reorder.mutate({ itemId, position });
       }}
       onMoveFailed={() => setNotice("Couldn't move it. Reload and try again.")}
-      extra={withAdding && adding}
     />
   );
 
@@ -709,7 +699,7 @@ function Screen({
     />
   ) : undefined;
 
-  const empty = items.length === 0 && !addByLink.isPending;
+  const empty = items.length === 0;
   const emptyText = EMPTY[selection.kind === "list" ? "list" : selection.view];
 
   return (
@@ -769,7 +759,6 @@ function Screen({
                 setNotice(undefined);
                 setView({ ...view, query });
               }}
-              autoFocus={empty}
             />
           </div>
           <SortMenu
@@ -778,6 +767,16 @@ function Screen({
             rankingLabel={selection.kind === "list" ? "My order" : "By list"}
             onChange={(change) => setView({ ...view, ...change })}
           />
+          <button
+            type="button"
+            aria-label="Add an item"
+            title="Add an item (N)"
+            aria-haspopup="dialog"
+            onClick={() => openComposer()}
+            className="hidden size-12 flex-none items-center justify-center rounded-card bg-accent text-accent-on transition-colors hover:bg-accent-hover lg:flex"
+          >
+            <Icon name="plus" size={22} />
+          </button>
         </div>
         {(notice || full) && (
           <p role="status" className="text-[13px] text-muted">
@@ -788,18 +787,17 @@ function Screen({
 
       {empty ? (
         <p className="text-muted">{emptyText}</p>
-      ) : shown.length === 0 && !addByLink.isPending ? (
+      ) : shown.length === 0 ? (
         <p className="text-muted">
           {searching
             ? `Nothing matches “${view.query.trim()}”.`
             : "Nothing matches."}
         </p>
       ) : view.groupBy === "none" ? (
-        renderTiles(shown, true)
+        renderTiles(shown)
       ) : (
         <div className="grid gap-10">
           <GroupedItems groups={groups} render={renderTiles} />
-          {adding && <TileGrid>{adding}</TileGrid>}
         </div>
       )}
 
@@ -822,6 +820,31 @@ function Screen({
           .
         </p>
       )}
+
+      {/* Phones: a floating + adds */}
+      {!wide && (
+        <button
+          type="button"
+          aria-label="Add an item"
+          title="Add an item"
+          aria-haspopup="dialog"
+          onClick={() => openComposer()}
+          className="fixed right-5 bottom-[max(34px,calc(env(safe-area-inset-bottom)+16px))] z-20 flex size-14 items-center justify-center rounded-full bg-accent text-accent-on shadow-[0_12px_32px_rgba(0,0,0,.18)] transition-colors hover:bg-accent-hover"
+        >
+          <Icon name="plus" size={24} />
+        </button>
+      )}
+
+      <Composer
+        open={composer !== undefined}
+        onClose={() => setComposer(undefined)}
+        wide={wide}
+        lists={lists}
+        defaultListId={defaultListId}
+        initialListId={listId}
+        prefill={composer?.prefill}
+        onOpenItem={openAdded}
+      />
 
       {/* Phones: the item opens in a bottom sheet */}
       {!wide && (

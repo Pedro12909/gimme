@@ -76,10 +76,18 @@ const PATHS = {
   // On the panel's photo: it can be changed
   image: (
     <>
-      <rect x="3.5" y="5" width="17" height="14" rx="2" />
+      <rect x="4" y="5" width="16" height="14" rx="2" />
       <circle cx="9" cy="10" r="1.6" />
-      <path d="M20.5 15.5l-5-5-9 8.5" />
+      <path d="M20 16l-5-5-8 8" />
     </>
+  ),
+  chevron: <path d="M6 9l6 6 6-6" />,
+  // The Want most switch when off
+  "star-outline": (
+    <path
+      strokeWidth={2}
+      d="M12 2.5l2.9 6.2 6.8.7-5.1 4.6 1.5 6.7L12 17.3l-6.1 3.4 1.5-6.7-5.1-4.6 6.8-.7z"
+    />
   ),
   // Stands in for a missing or broken product photo
   gift: (
@@ -123,7 +131,14 @@ export function Icon({
       height={size}
       fill="none"
       stroke="currentColor"
-      strokeWidth={strokeWidth ?? (name === "check" && size <= 15 ? 2.5 : 1.8)}
+      strokeWidth={
+        strokeWidth ??
+        (name === "check" && size <= 15
+          ? 2.5
+          : name === "chevron" && size <= 14
+            ? 2.2
+            : 1.8)
+      }
       strokeLinecap="round"
       strokeLinejoin="round"
       className={cn("flex-none", className)}

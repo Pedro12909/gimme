@@ -8,12 +8,15 @@ export function Modal({
   onClose,
   labelledBy,
   className,
+  initialFocus,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   labelledBy: string;
   className?: string;
+  // Where focus starts; the dialog itself when not given
+  initialFocus?: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -23,11 +26,13 @@ export function Modal({
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
-      // Focus the dialog itself, not its first field: that would open the phone keyboard
-      dialog.focus();
+      // The dialog itself unless told otherwise, not its first field: that would open the
+      // phone keyboard where typing isn't the point
+      (initialFocus?.current ?? dialog).focus();
     } else if (!open && dialog.open) {
       dialog.close();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a ref, read when it opens
   }, [open]);
 
   return (

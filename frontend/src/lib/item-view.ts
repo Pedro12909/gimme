@@ -4,7 +4,8 @@ import { siteName } from "@/lib/links";
 
 export type ViewableItem = {
   itemId: string;
-  url: string;
+  // Missing for an item that's just a name (which then always has a title)
+  url?: string;
   title?: string;
   note?: string;
   imageUrl?: string;
@@ -52,7 +53,7 @@ export const isUnavailable = (item: ViewableItem) =>
   Boolean(item.claimed || item.got);
 
 export const itemLabel = (item: ViewableItem) =>
-  item.title?.trim() || siteName(item.url);
+  item.title?.trim() || siteName(item.url) || "Untitled";
 
 export const itemVendor = (item: ViewableItem) =>
   item.vendor?.trim() || siteName(item.url);
@@ -177,7 +178,9 @@ const comparators: Record<
   priceAsc: (a, b) => (priceValue(a) ?? Infinity) - (priceValue(b) ?? Infinity),
   priceDesc: (a, b) =>
     (priceValue(b) ?? -Infinity) - (priceValue(a) ?? -Infinity),
+  // Items with no shop go last
   vendor: (a, b) =>
+    Number(!itemVendor(a)) - Number(!itemVendor(b)) ||
     itemVendor(a).localeCompare(itemVendor(b)) ||
     itemLabel(a).localeCompare(itemLabel(b)),
   // Older API responses may lack createdAt; those items go last
@@ -387,16 +390,22 @@ export function groupItems<T extends ViewableItem>(
   }
 
   if (groupBy === "shop") {
-    const shops = [...new Set(items.map(itemVendor))].sort((a, b) =>
-      a.localeCompare(b),
+    const shops = [...new Set(items.map(itemVendor).filter(Boolean))].sort(
+      (a, b) => a.localeCompare(b),
     );
-    return toGroups(
-      shops.map((shop) => ({
+    // Items with neither a shop nor a link
+    return toGroups([
+      ...shops.map((shop) => ({
         key: `shop:${shop}`,
         label: shop,
         items: items.filter((item) => itemVendor(item) === shop),
       })),
-    );
+      {
+        key: "no-shop",
+        label: "Other",
+        items: items.filter((item) => !itemVendor(item)),
+      },
+    ]);
   }
 
   return toGroups([{ key: "all", label: "", items }]);

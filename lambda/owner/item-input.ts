@@ -86,14 +86,17 @@ export function readItemInput(
 ): Result {
   const fields: Record<string, unknown> = {};
 
-  // Link: required on create; guests open it, so only http(s)
+  // Link: optional, since a name alone is an item. Guests open it, so only http(s).
+  // On update "" clears it.
   const url = text(body, "url", LIMITS.url);
   if (typeof url === "object") return url;
-  if (url !== undefined || mode === "create") {
-    if (!url || !isWebLink(url, ["http:", "https:"])) {
+  if (url !== undefined && url !== "") {
+    if (!isWebLink(url, ["http:", "https:"])) {
       return { error: "url must be an http or https link" };
     }
     fields.url = url;
+  } else if (url === "" && mode === "update") {
+    fields.url = "";
   }
 
   for (const [field, max] of [
@@ -105,6 +108,12 @@ export function readItemInput(
     const value = text(body, field, max);
     if (typeof value === "object") return value;
     if (value !== undefined) fields[field] = value;
+  }
+
+  // An item is a name, a link, or both (whether an update leaves one is checked against the
+  // stored item)
+  if (mode === "create" && !fields.title && !fields.url) {
+    return { error: "title or url is required" };
   }
 
   // Image: shown to guests on an https page, so https only

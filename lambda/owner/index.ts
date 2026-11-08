@@ -947,6 +947,15 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
     return ctx.json({ error: "Not found" }, 404);
   }
 
+  // An item keeps a name or a link (or both): clearing one needs the other
+  const keeps = (field: "title" | "url") =>
+    field in input.fields
+      ? !isCleared(input.fields[field])
+      : Boolean(existing[field]);
+  if (!keeps("title") && !keeps("url")) {
+    return ctx.json({ error: "title or url is required" }, 400);
+  }
+
   // imageKey is only ever set here, from an upload, so it always names a file this app owns
   const fields: Record<string, unknown> = { ...input.fields };
   let replacedImageKey: string | undefined;
@@ -998,12 +1007,25 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
     .join(" ")
     .trim();
 
+  // Checked again in the write, in case another save cleared the other one meanwhile
+  const guards: string[] = [];
+  if (fields.title === "" && !("url" in fields && fields.url !== "")) {
+    names["#url"] = "url";
+    guards.push("attribute_exists(#url)");
+  }
+  if (fields.url === "" && !("title" in fields && fields.title !== "")) {
+    names["#title"] = "title";
+    guards.push("attribute_exists(#title)");
+  }
+
   try {
     const result = await documentClient.send(
       new UpdateCommand({
         TableName: itemsTableName,
         Key: { listId, itemId },
-        ConditionExpression: "attribute_exists(itemId)",
+        ConditionExpression: ["attribute_exists(itemId)", ...guards].join(
+          " AND ",
+        ),
         UpdateExpression: updateExpression,
         ExpressionAttributeNames: names,
         ExpressionAttributeValues:
@@ -1017,7 +1039,10 @@ app.patch("/lists/:listId/items/:itemId", async (ctx) => {
     return ctx.json(result.Attributes);
   } catch (err) {
     if (err instanceof ConditionalCheckFailedException) {
-      return ctx.json({ error: "Not found" }, 404);
+      // Either the item is gone or the other of name and link was cleared meanwhile
+      return guards.length > 0
+        ? ctx.json({ error: "title or url is required" }, 400)
+        : ctx.json({ error: "Not found" }, 404);
     }
 
     throw err;

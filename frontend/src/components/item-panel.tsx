@@ -155,7 +155,7 @@ export function ItemPanel({
     title: item.title ?? "",
     price: item.price ?? "",
     vendor: item.vendor ?? "",
-    url: item.url,
+    url: item.url ?? "",
     note: item.note ?? "",
     size: item.size ?? "",
     tags: item.tags ?? [],
@@ -249,13 +249,16 @@ export function ItemPanel({
   };
 
   // --- Validation ---------------------------------------------------------------------
+  // A link is optional, but an item keeps a name or a link
   const url = values.url.trim();
   const urlError =
-    url === ""
-      ? "An item needs a link. Paste one from any shop."
-      : safeHref(url) === undefined
-        ? "Paste a full link, starting with https://"
-        : undefined;
+    url !== "" && safeHref(url) === undefined
+      ? "Paste a full link, starting with https://"
+      : undefined;
+  const nameError =
+    values.title.trim() === "" && url === ""
+      ? "Give it a name or a link."
+      : undefined;
   const alternativeErrors = values.alternatives.map((link) =>
     link.trim() !== "" && safeHref(link.trim()) === undefined
       ? "Paste a full link, starting with https://"
@@ -486,7 +489,7 @@ export function ItemPanel({
   return (
     <div className="flex flex-col gap-4" {...dropHandlers}>
       <h2 id={headingId} className="sr-only">
-        {values.title.trim() || siteName(item.url)}
+        {values.title.trim() || siteName(item.url) || "Item"}
       </h2>
 
       <div className="flex items-center gap-0.5">
@@ -690,9 +693,16 @@ export function ItemPanel({
         aria-label="Name"
         rows={2}
         value={values.title}
-        placeholder={siteName(item.url)}
+        placeholder={siteName(item.url) || "Name"}
         maxLength={LIMITS.title}
-        onChange={(event) => change("title", event.target.value)}
+        aria-invalid={nameError !== undefined}
+        aria-describedby={nameError ? `${ids}-name-error` : undefined}
+        onChange={(event) =>
+          change("title", event.target.value, {
+            // Not saved while it would leave the item with neither
+            valid: event.target.value.trim() !== "" || url !== "",
+          })
+        }
         onBlur={() => void flush()}
         onKeyDown={(event) => {
           // Enter finishes the name rather than starting a new line
@@ -703,6 +713,15 @@ export function ItemPanel({
         }}
         className="-mx-2 resize-none rounded-sm bg-transparent px-2 py-1 text-[19px] leading-[1.3] font-semibold placeholder:text-muted hover:bg-surface focus:bg-surface"
       />
+      {nameError && (
+        <p
+          id={`${ids}-name-error`}
+          role="alert"
+          className="-mt-3 text-[13px] text-danger"
+        >
+          {nameError}
+        </p>
+      )}
 
       <div onBlur={() => void flush()}>
         <Row label="Price" htmlFor={`${ids}-price`}>
@@ -723,7 +742,7 @@ export function ItemPanel({
             id={`${ids}-shop`}
             type="text"
             className={rowInput}
-            placeholder={siteName(url || item.url)}
+            placeholder={siteName(url || item.url) || "e.g. Amazon"}
             value={values.vendor}
             maxLength={LIMITS.vendor}
             autoComplete="off"
@@ -737,13 +756,18 @@ export function ItemPanel({
             inputMode="url"
             className={rowInput}
             value={values.url}
+            placeholder="Optional"
             maxLength={LIMITS.url}
             autoComplete="off"
             aria-invalid={urlError !== undefined}
             onChange={(event) => {
               const next = extractLink(event.target.value);
-              change("url", next, {
-                valid: safeHref(next.trim()) !== undefined,
+              change("url", next.trim() === "" ? "" : next, {
+                // Empty clears it, as long as the item has a name
+                valid:
+                  next.trim() === ""
+                    ? values.title.trim() !== ""
+                    : safeHref(next.trim()) !== undefined,
               });
             }}
           />

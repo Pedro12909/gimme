@@ -1,5 +1,7 @@
-// Item URLs are typed by the list owner, so only real web links are made clickable
-export function safeHref(url: string): string | undefined {
+// Item URLs are typed by the list owner, so only real web links are made clickable.
+// Items may have no link at all.
+export function safeHref(url: string | undefined): string | undefined {
+  if (!url) return undefined;
   try {
     const parsed = new URL(url);
     return parsed.protocol === "http:" || parsed.protocol === "https:"
@@ -10,7 +12,9 @@ export function safeHref(url: string): string | undefined {
   }
 }
 
-export function siteName(url: string): string {
+// "fnac.pt"; "" for an item without a link
+export function siteName(url: string | undefined): string {
+  if (!url) return "";
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
